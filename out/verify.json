@@ -1,0 +1,107 @@
+{
+ "limit": {
+  "storm_MAPE": 0.007372778880096562
+ },
+ "nominal": {
+  "storm_MAPE": 0.044682437519127496,
+  "NIS": {
+   "gauge": 0.9526297287790723,
+   "O": 1.00468746313766,
+   "drag": 0.7024770305083335
+  },
+  "NEES_rho": 0.4897636224069265
+ },
+ "noise_x3": {
+  "NIS": {
+   "gauge": 3.523507250106867,
+   "O": 8.276936440188795,
+   "drag": 6.055775501463476
+  },
+  "NEES_rho": 0.5926058921728192
+ },
+ "overconfident_x3": {
+  "NEES_rho": 2.76878028693264,
+  "storm_MAPE": 0.04018335038919007
+ },
+ "cal_sweep": {
+  "0.25": 0.01784429177281346,
+  "0.5": 0.024200643732611916,
+  "1.0": 0.044682437519127496,
+  "2.0": 0.08766878639800105
+ },
+ "prior_sweep": {
+  "truth": 0.04081992751725175,
+  "lag3": 0.08855085199550164,
+  "lag6_cap200": 0.19080564565655111,
+  "lag6_cap100": 0.2583817231700537,
+  "missed": 0.36392311937311106
+ },
+ "composition_limits": {
+  "300": {
+   "nominal_pp": 2.559399948190416,
+   "perfect_gains_may_drift_pp": 2.9790437355829535,
+   "perfect_only_gauge_fixed_pp": 2.9957328905694594,
+   "perfect_only_O_fixed_pp": 2.488161274619988,
+   "perfect_only_CD_fixed_pp": 2.9798407194533594,
+   "perfect_all_gains_fixed_pp": 1.149092156078725,
+   "prior_model_pp": 5.712921808523454
+  },
+  "450": {
+   "nominal_pp": 8.679790339694025,
+   "perfect_gains_may_drift_pp": 9.15094473364557,
+   "perfect_only_gauge_fixed_pp": 9.246550852805278,
+   "perfect_only_O_fixed_pp": 7.230924428518229,
+   "perfect_only_CD_fixed_pp": 9.133267587940892,
+   "perfect_all_gains_fixed_pp": 1.46814664252165,
+   "prior_model_pp": 3.3468656612517753
+  }
+ },
+ "observability_cond": {
+  "gauge+drag+O [O,N2,He]": 149.37032973434225,
+  "gauge+drag  [N2,He] (O known)": 119.51329622289144,
+  "gauge+O     [O,N2]": 1.7360276813294742
+ },
+ "checks": [
+  {
+   "name": "converges to truth",
+   "pass": true,
+   "detail": "storm density error 0.74% (should be < 1%; remainder = 3-family grouping)"
+  },
+  {
+   "name": "NIS ~ 1 (noise model right)",
+   "pass": true,
+   "detail": "gauge 0.95, O 1.00, drag 0.70"
+  },
+  {
+   "name": "NEES <= ~1 (not overconfident)",
+   "pass": true,
+   "detail": "NEES 0.49 (<1 = cautious)"
+  },
+  {
+   "name": "NIS detects wrong noise model",
+   "pass": true,
+   "detail": "gauge 3.52, O 8.28, drag 6.06"
+  },
+  {
+   "name": "NEES detects overconfidence",
+   "pass": true,
+   "detail": "NEES 2.77 vs nominal 0.49"
+  },
+  {
+   "name": "error tracks calibration",
+   "pass": true,
+   "detail": "monotonic increase -> the fused accuracy is set by calibration, not storms"
+  },
+  {
+   "name": "composition limited by in-flight gain drift",
+   "pass": true,
+   "detail": "fixing all gains cuts composition error; fixing any single one does not"
+  }
+ ],
+ "seeds": [
+  200,
+  201,
+  202,
+  203
+ ]
+}
