@@ -12,6 +12,14 @@ Last updated Nov 5, 2026. Covers everything from the start of the OSSE work thro
 
 No other internal timeline: the work goes as fast as it can be done correctly.
 
+## 0. The submission packet (official sample form, re-read Nov 7)
+- **13 text sections, ~3,250 words total:** Technology description 50, Capabilities 250, Technology overview 350, **Technology performance 350**, Projected cost and scalability 350, Technology development status 300, Resource needs and accommodation 300, Flight demonstration and integration 150, Solution development plan 250, Intellectual property 200, Other considerations (optional) 150, Project plan 200, Budget narrative 200. Plus team info, budget line items, insurance question, YouTube URL.
+- **Visual PDF:** one file, ≤5 pages, ≤10 MB. "Photos, illustrations, schematics, charts, graphs." Only "brief labels and/or basic text descriptions", minimum 10 pt; must not carry text that circumvents word counts. **No Gantt charts, schedules or budgets.** Extra pages or unrelated content = ineligible. It is a figure document, not a paper.
+- **Video:** YouTube, ≤90 s, captioned, public or unlisted, embedding on. "Do not simply read a slide deck."
+- **URLs:** allowed in Technology development status ("cite test results or other evidence"); must not be password-protected; "judges are not required to read this content", used "for due diligence." So a public technical report (full OSSE, number register, sources) is the place for depth, but every claim the score depends on must stand in the form text and the PDF.
+- **No references section or appendix upload.** Citations go inline, sparingly; the full list lives in the public report.
+- **Proof of citizenship/permanent residency** is required from an individual winner; an organization needs a US location of business.
+
 ## 1. What OCC actually rewards
 - **Benchmarks for in-situ density:** 20% accuracy, 10% precision, a reading every 30 s. These are "target floors, not fixed requirements": trading performance for big cost or scale gains "can still be highly competitive."
 - **Relevance:**
@@ -126,13 +134,13 @@ No other internal timeline: the work goes as fast as it can be done correctly.
 ## 8. Software and simulation plan (complete, in order)
 **Rules:**
 - Everything is built as simt scenarios in this repo (`osse/`). The reference is `simt/examples/occ.py`: it is already a validated port of `fusion_osse.py` (medians inside the original's 95% confidence intervals, `validate_occ.py`), and later simt changes reproduce it bit for bit. Every restructuring step must reproduce it exactly with the same seed and settings; every deliberate model change is reported as a change, with its effect.
-- Every number is a setting with **separate truth and filter values**, tagged with exactly one kind:
-  - **S** sourced (datasheet, paper, constant): the citation
-  - **V** vendor (INFICON, Stuttgart): the email or recap; swept until it arrives
-  - **R** research: literature exists; find it and document it
-  - **W** sweep to requirement: truly unknown; no value is picked; the output is "must be better than X"
-  - **D** design choice: the reasoning (benchmark, convergence, NIS/NEES test)
-  - **L** lead/team: host, orbit, mechanical; the team's documented decision
+- Every number is a setting with **separate truth and filter values**, tagged with exactly one kind (the tag answers "why should anyone believe this number?"):
+  - **sourced** (datasheet, paper, constant): the citation
+  - **vendor** (INFICON, Stuttgart): the email or recap; swept until it arrives
+  - **research**: literature exists; find it and document it
+  - **sweep**: truly unknown; no value is picked; the output is "must be better than X"
+  - **choice**: our decision (orbit, host, run setup, tuning); the reasoning
+  - **old**: inherited from the reference code with no source; must be replaced (says what it becomes)
 - **No silent constants.** Sweep ranges only need to bracket the break point. Anything held fixed during a sweep uses its S/V value, or is run at both ends of its range if still unknown.
 - **Datasheet specs without a stated meaning** (30% accuracy, 5% repeatability: 1σ or a bound?) are run both ways until the vendor answers; 1σ is the conservative reading.
 - **OCC does not define accuracy and precision statistically.** We state ours: accuracy = bias, precision = 1σ scatter at 30 s, plus median and P90.
