@@ -73,8 +73,13 @@ reg("T0", "2024-05-09T00:00", "choice",
     "1.5 days before G5 first observed 22:54 UTC May 10 2024 (NOAA SWPC), so the filter settles first (UTC)")
 reg("NDAY", 5, "choice",
     "covers the full storm incl. the second Kp>=5 burst 12 May 21:00-13 May 06:00 UTC (GFZ) and early recovery (days)")
-reg("N_PHASES", 32, "assumption", "orbit start points precomputed for speed; convergence untested",
-    becomes="choice", note="show results stop changing above some number of phases")
+reg("N_PHASES", 32, "choice",
+    "convergence test: 16/32/64 phases give overlapping 95% CIs on the median of storm and quiet fused MAE "
+    "and storm prior bias (1000 runs each, Nov 8)")
+reg("PRODUCT_TIME", "midpoint", "choice",
+    "each 30 s product is stamped at its window midpoint; the 30 s mean of MSIS density equals the "
+    "midpoint value within 0.013% (our calc, NRLMSIS 2.1, 1 s along-track, May 2024 storm onset)",
+    note="the truth wiggles (scales 40-260 s) DO need averaging: done when their researched values go in")
 
 
 # orbit
@@ -84,19 +89,7 @@ reg("INC_DEG", 51.6, "assumption", "ISS-like inclination, common for rideshare h
 reg("MSIS_VERSION", 2.1, "sourced", "NRLMSIS 2.1, Emmert et al. 2022 JGR Space Phys, doi:10.1029/2022JA030896; via pymsis")
 
 
-# storm drivers, reference version (bit-identical check only)
-REF = "reference code (examples/occ.py); kept only for the bit-identical check"
-reg("REF_AP_QUIET", 7.0, "assumption", REF, becomes="sourced")
-reg("REF_AP_STEPS", ((39, 94.0), (42, 300.0), (45, 400.0), (57, 207.0), (66, 80.0), (78, 32.0), (90, 15.0)),
-    "assumption", REF + "; (hours after T0, ap from then on), hand-typed shape of May 2024", becomes="sourced")
-reg("REF_F107_TRUTH", 220.0, "assumption", REF, becomes="sourced")
-reg("REF_F107_PRIOR", 200.0, "assumption", REF, becomes="sourced")
-reg("REF_F107A", 170.0, "assumption", REF, becomes="sourced")
-reg("REF_PRIOR_LAG", 2, "assumption", REF + "; forecast = truth delayed 2 x 3 h", becomes="sourced")
-reg("REF_PRIOR_CAP", 100.0, "assumption", REF + "; forecast = truth capped at ap 100", becomes="sourced")
-
-
-# storm drivers, real version (switched on after the bit-identical check)
+# storm drivers
 reg("SW_FILE", "data/SW-All.csv", "sourced",
     "CelesTrak SW-All.csv, read by pymsis; May 2024 Kp/ap identical to GFZ definitive (Matzka et al. 2021, doi:10.5880/Kp.0001)",
     note="pinned copy so results never change; download date goes in docs/sources.md")
@@ -105,6 +98,9 @@ reg("F107_KIND", "observed", "sourced",
 reg("GEOMAG_MODE", -1, "sourced", "NRLMSIS storm-time mode uses the 3-hourly ap history; pymsis default 1 = daily Ap only")
 reg("STORM_HOURS", (39.0, 78.0), "sourced",
     "Kp >= 5 (NOAA G1) continuously 10 May 15:00 to 12 May 06:00 UTC, GFZ definitive (hours after T0)")
+reg("QUIET_HOURS", (12.0, 39.0), "assumption",
+    "after 12 h of filter settling, up to storm onset; Kp <= 3.7 throughout (GFZ definitive) (hours after T0)",
+    becomes="choice", note="settling time to be justified by NEES / convergence")
 
 # operator baseline: what forecasters actually had
 reg("FORECAST_DIR", "data/swpc", "sourced",
@@ -120,25 +116,40 @@ reg("PRIOR_PAST_AP", "measured", "assumption",
 reg("PRIOR_F107A", 165.0, "assumption",
     "operators have no 81-day centered average; nearest published value is the RSGA 90-day mean, 164-165 (issued 9 May)",
     note="also run the baseline with the true 176.2 as its best case")
+reg("PRIOR_F107", "measured", "choice",
+    "MSIS uses the previous day's F10.7, which operators already have measured (DRAO); same as truth")
 
 
 # truth atmosphere: small-scale structure MSIS doesn't have
 PH = "placeholder from the reference code"
-reg("TRUTH_COMMON_SD", 0.05, "assumption", PH + "; all-species AR(1) wiggle, 1-sigma (ln units)",
-    becomes="research", note="replace with measured small-scale density variability (CHAMP/GRACE)")
-reg("TRUTH_COMMON_TAU", 600.0, "assumption", PH + "; its correlation time (s)", becomes="research")
-reg("TRUTH_SPECIES_SD", 0.02, "assumption", PH + "; per-species AR(1) wiggle, 1-sigma (ln units)", becomes="research")
-reg("TRUTH_SPECIES_TAU", 900.0, "assumption", PH + "; its correlation time (s)", becomes="research")
+reg("TRUTH_COMMON_SD", 0.13, "sourced",
+    "CHAMP density variability ~9% low / ~13% high geomagnetic activity, 370-450 km (Bruinsma & Forbes 2008); "
+    "high-activity value used throughout (1-sigma ln units, before 30 s averaging)",
+    note="sweep 0.09-0.13: rougher truth is harder for the filter but also makes the baseline look worse")
+reg("TRUTH_COMMON_TAU", 100.0, "assumption",
+    "775 km / 7.7 km/s; 775 km = geometric middle of observed 300-2000 km structure scales "
+    "(Bruinsma et al. 2006; Garcia et al. 2016) (s)", becomes="sweep", note="sweep 40-260 s")
+reg("TRUTH_SPECIES_SD", 0.02, "assumption",
+    "per-species small-scale composition structure: no published value; kept small vs the common term",
+    becomes="sweep", note="sweep 0-0.10")
+reg("TRUTH_SPECIES_TAU", 100.0, "assumption", "same scale as the common structure (s)", becomes="sweep")
 
 
 # CCG (gauge)
-reg("R_TRUE", (1.0, 0.90, 0.58, 0.16, 0.42, 1.45, 0.55), "assumption",
-    PH + "; true gas sensitivities vs N2, SPECIES order (hot-cathode table, not this gauge)",
-    becomes="vendor", note="INFICON Q1 (O2, He); atomic O is the S_O sweep")
-reg("R_FILT", (1.0, 0.90, 0.55, 0.16, 0.42, 1.45, 0.55), "assumption",
-    PH + "; filter's belief; O deliberately wrong by 0.03", becomes="sweep")
-reg("GAUGE_GAIN_SD", 0.08, "assumption", PH + "; unit-to-unit gain error, 1-sigma (ln units)",
-    becomes="sourced", note="datasheet 30%, run as 1-sigma and as bound; per-unit cal level is vendor")
+reg("R_TRUE", (1.0, 1.01, 0.56, 0.18, 0.22, 1.29, 0.58), "sourced",
+    "N2 1 (reference), O2 1.01, He 0.18, Ar 1.29: MKS table (hot + cold cathode). O 0.56, N 0.58, H 0.22: "
+    "electron-impact ionization cross section ratio to N2 at ~100 eV (NIST SRD 107: O 0.54-0.58, N 0.53-0.64, "
+    "H 0.22-0.23), method per Summers 1969 NASA TN D-5285 (~10%)", becomes="vendor",
+    note="O is S_O: bracket ~0.5 (full wall recombination, Explorer 17 practice) to 0.77 (Geoprobe 1969); A2 sweep")
+reg("R_FILT", (1.0, 1.01, 0.56, 0.18, 0.22, 1.29, 0.58), "choice",
+    "filter uses the same nominal factors; the mismatch cases are the sweeps (A2 for S_O)")
+reg("CD_SD", 0.10, "assumption",
+    "middle of 5-15% 1-sigma C_D uncertainty from gas-surface-interaction literature (Moe et al. 1998: 15%; "
+    "March et al. 2021: +-10%; Mehta et al. 2014, 2023) (ln units)", becomes="sweep",
+    note="sweep 0.05-0.15; tens of percent above 450 km at solar min (Mehta 2023)")
+reg("GAUGE_GAIN_SD", 0.30, "sourced",
+    "MAG084 datasheet accuracy 30% (N2, typical), taken as 1-sigma: the conservative reading (ln units)",
+    becomes="vendor", note="INFICON: is 30% 1-sigma or a bound, and what does per-unit calibration achieve; also run 0.10")
 reg("GAUGE_DRIFT_SD", 0.02, "assumption", PH + "; gain drift rate, 1-sigma (ln units per day)", becomes="vendor")
 reg("GAUGE_NOISE", 0.01, "assumption", PH + "; noise per 30 s reading, 1-sigma (ln units)",
     becomes="vendor", note="needs INFICON noise + sampling rate, converted to 30 s averages")
@@ -153,25 +164,27 @@ reg("O_DRIFT_SD", 0.01, "assumption", PH + "; its spread, 1-sigma (ln units per 
 reg("O_NOISE", 0.05, "assumption", PH + "; noise per 30 s reading, 1-sigma (ln units)", becomes="vendor")
 
 
-# host drag
-reg("CD_SD", 0.07, "assumption", PH + "; drag-coefficient bias, 1-sigma (ln units)",
-    becomes="research", note="needs a cited C_D uncertainty (15-25% is unsourced)")
-reg("DRAG_NOISE", 0.03, "assumption", PH + "; noise per drag estimate, 1-sigma (ln units)",
-    becomes="sourced", note="Lowe & D'Amico 2026: 5/9/16% day-averaged")
-reg("REF_DRAG_WINDOW", "orbit", "assumption", REF + "; one drag value per orbit, averaged over that orbit",
-    becomes="sourced", note="becomes day-averaged (Lowe & D'Amico 2026)")
-
-
 # filter: state = [dO, dN2, dHe, gauge gain, O gain, C_D bias]
 reg("GROUP", (1, 1, 0, 2, 2, 1, 0), "choice",
     "which correction state scales each species (SPECIES order): O,N->O; N2,O2,Ar->N2; He,H->He; "
     "lumps minor species with the major one they track")
-reg("P0_SD", (0.5, 0.5, 0.7, 0.10, 0.15, 0.10), "assumption", PH + "; starting uncertainty per state (ln units)",
-    becomes="choice", note="justify from prior-vs-truth error statistics + NEES")
-reg("Q_SD", (0.02, 0.02, 0.01, 0.0005, 0.0008, 0.0002), "assumption",
-    PH + "; random-walk step per 30 s per state (ln units)", becomes="choice", note="tune by NIS/NEES")
-reg("R_GAUGE", 0.012, "assumption", PH + "; filter's gauge noise incl. representativeness (ln units)",
-    becomes="choice", note="must follow GAUGE_NOISE; tune by NIS")
-reg("R_O", 0.05, "assumption", PH + "; filter's FIPEX noise (ln units)", becomes="choice")
-reg("R_DRAG", 0.035, "assumption", PH + "; filter's drag noise (ln units)", becomes="choice")
+reg("P0_MSIS_SD", (0.04777, 0.06116, 0.01001), "sourced",
+    "derived: RMS of ln(truth/prior) at run start from the MSIS tables (real drivers vs NOAA forecasts), "
+    "for dO, dN2, dHe; truth-wiggle part added in code (ln units)")
+reg("Q_MSIS_SD", (0.002503, 0.004619, 0.007333), "sourced",
+    "derived: step-to-step sd of ln(truth/prior) from the MSIS tables, dO, dN2, dHe; wiggle part added in code "
+    "(ln units)")
+reg("ATMOS_COVARIANCE", "correlated", "choice",
+    "P0 and Q are the covariance of the true atmosphere errors and their increments; the common wiggle moves all "
+    "gases together, so its part fills the whole 3x3 block, per-gas and model-gap parts stay on the diagonal")
+reg("CD_DRIFT_SD", 0.01, "assumption",
+    "slow C_D change from attitude and surface state over days (ln units per day)", becomes="sweep")
 reg("USE_SENSORS", ("gauge", "o", "drag"), "choice", "full suite; subsets run as comparisons")
+reg("DRAG_WINDOW", 86400.0, "sourced",
+    "GPS-only drag gives day-averaged beta (Lowe & D'Amico 2026); one estimate per UTC day (s)")
+reg("DRAG_NOISE", 0.06, "sourced",
+    "Lowe & D'Amico 2026: day-averaged beta error 6% for the May 2024 storm (16/9/5% low/mean/high solar activity); "
+    "their RMS percent error used as 1-sigma (ln units)")
+reg("FILTER_SENSOR_BELIEF", "matched", "choice",
+    "filter's starting sensor-state sd = the true calibration spreads and its R = the true sensor noise "
+    "(filter knows its sensors); mismatched cases are the sweeps")
