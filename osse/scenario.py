@@ -2,10 +2,10 @@ import math
 import numpy as np
 import torch
 
-from simt import Scenario, kf_predict, kf_update_scalar
+from simt import Scenario, kf_predict
 from osse.atmosphere import build_tables
 from osse.params import value
-from osse.filter import IDX, N_STATES, GAP, WC, WG, correction, density
+from osse.filter import IDX, N_STATES, GAP, WC, WG, correction, density, CONSIDER, consider_update
 from osse.sensors import drag_predict, drag_true, gauge_predict, gauge_true, o_predict, o_true, leak_true, leak_predict
 from osse.metrics import Scorer
 
@@ -22,6 +22,10 @@ class OSSE(Scenario):
         self.o_idx = self.species.index("O")
         self.n2_idx = self.species.index("N2")
         self.he_idx = self.species.index("He")
+        self.so_true = math.log(get("R_TRUE")[self.o_idx] / get("R_FILT")[self.o_idx])
+        mode = get("SO_MODE")
+        self.consider = CONSIDER if mode == "consider" else ()
+        self.so_sd = 1e-6 if mode == "off" else get("SO_SD")
         self.dt = get("DT")
         self.a_common, self.kick_common = self._ar1(get("TRUTH_COMMON_SD"), get("TRUTH_COMMON_TAU"))
         self.a_species, self.kick_species = self._ar1(get("TRUTH_SPECIES_SD"), get("TRUTH_SPECIES_TAU"))
@@ -55,8 +59,9 @@ class OSSE(Scenario):
         self.prior = f(self.prior_np)
         self.prior_day = f(day_means)
         self.mass = f(value("MASS"))
-        self.r_true_t = f(get("R_TRUE"))
-        self.r_filt_t = f(get("R_FILT"))
+        w = np.sqrt(np.array(value("MASS")) / value("MASS")[self.n2_idx]) if get("GAUGE_MODEL") == "ram" else 1.0
+        self.r_true_t = f(np.array(get("R_TRUE")) * w)
+        self.r_filt_t = f(np.array(get("R_FILT")) * w)
         group = value("GROUP")
         self.gidx = torch.as_tensor(group, device=device)
         self.G = f(np.eye(3)[list(group)])
@@ -71,6 +76,7 @@ class OSSE(Scenario):
         P0[WC, WC] = common_var
         P0[WG, WG] = np.eye(3) * species_var
         P0[gg, gg], P0[og, og], P0[cd, cd] = get("GAUGE_GAIN_SD") ** 2, get("O_GAIN_SD") ** 2, get("CD_SD") ** 2
+        P0[IDX["ln_so"], IDX["ln_so"]] = self.so_sd ** 2
 
         Q = np.zeros((N_STATES, N_STATES))
         Q[GAP, GAP] = np.diag(np.array(get("Q_MSIS_SD")) ** 2)
@@ -100,6 +106,7 @@ class OSSE(Scenario):
             "o_gain": normal(0.0, get("O_GAIN_SD")),
             "o_drift": -normal(get("O_DRIFT_MEAN"), get("O_DRIFT_SD")).abs() / 86400,
             "cd_bias": normal(0.0, get("CD_SD")),
+            "ln_so": normal(0.0, get("SO_TRUTH_SD")) + get("SO_TRUTH_OFFSET"),
         }
 
     def init_state(self, params, generator):
@@ -144,7 +151,9 @@ class OSSE(Scenario):
 
         s["truth_day"] = s["truth_day"] + rho_true
 
-        z_gauge = gauge_true(n_true, self.r_true_t, p["gauge_gain"], p["gauge_drift"], tk, get("GAUGE_NOISE"), randn(n))
+        n_g = n_true.clone()
+        n_g[:, self.o_idx] = n_g[:, self.o_idx] * torch.exp(p["ln_so"])
+        z_gauge = gauge_true(n_g, self.r_true_t, p["gauge_gain"], p["gauge_drift"], tk, get("GAUGE_NOISE"), randn(n))
         z_o = o_true(n_true[:, self.o_idx], p["o_gain"], p["o_drift"], tk, get("O_NOISE"), randn(n))
 
         n_tot_prior = n_prior.sum(1)
@@ -154,12 +163,12 @@ class OSSE(Scenario):
         x, P = kf_predict(x, P, self.F, self.Qd)
         if "gauge" in use:
             e = torch.exp(correction(x)[:, self.gidx])
-            h, H = gauge_predict(n_prior, e, self.r_filt_t, self.G, x)
-            x, P, info = kf_update_scalar(x, P, H, z_gauge, h, get("GAUGE_NOISE") ** 2, return_info=True)
+            h, H = gauge_predict(n_prior, e, self.r_filt_t, self.G, x, self.o_idx)
+            x, P, info = consider_update(x, P, H, z_gauge, h, get("GAUGE_NOISE") ** 2, self.consider)
             s["score"].add_nis("gauge", info)
         if "o" in use:
             h, H = o_predict(n_prior[:, self.o_idx], x)
-            x, P, info = kf_update_scalar(x, P, H, z_o, h, get("O_NOISE") ** 2, return_info=True)
+            x, P, info = consider_update(x, P, H, z_o, h, get("O_NOISE") ** 2, self.consider)
             s["score"].add_nis("o", info)
         day_end = (k + 1) % self.drag_steps == 0
         if "drag" in use and day_end:
@@ -169,14 +178,14 @@ class OSSE(Scenario):
             rho_now = density(n_prior, x, self.gidx, self.mass, amu)
             h, H = drag_predict(self.mass, self.prior_day[p["phase"], k // m], e, self.G,
                                 s["est_day"] + rho_now, m, x)
-            x, P, info = kf_update_scalar(x, P, H, z_drag, h, get("DRAG_NOISE") ** 2, return_info=True)
+            x, P, info = consider_update(x, P, H, z_drag, h, get("DRAG_NOISE") ** 2, self.consider)
             s["score"].add_nis("drag", info)
         
         leak_end = (k + 1) % int(get("LEAK_WINDOW") / self.dt) == 0
         if "leak" in use and (k == 0 or leak_end):
             z_leak = leak_true(p["gauge_gain"], p["gauge_drift"], tk, get("LEAK_NOISE"), randn(n))
             h, H = leak_predict(x)
-            x, P, info = kf_update_scalar(x, P, H, z_leak, h, get("LEAK_NOISE") ** 2, return_info=True)
+            x, P, info = consider_update(x, P, H, z_leak, h, get("LEAK_NOISE") ** 2, self.consider)
             s["score"].add_nis("leak", info)
 
         rho_est = density(n_prior, x, self.gidx, self.mass, amu)
@@ -205,7 +214,8 @@ class OSSE(Scenario):
                 s["species"][:, o], s["species"][:, n2], s["species"][:, he],
                 p["gauge_gain"] + p["gauge_drift"] * tk,
                 p["o_gain"] + p["o_drift"] * tk,
-                p["cd_bias"]], dim=1)
+                p["cd_bias"], 
+                torch.full_like(p["cd_bias"], self.so_true) + p["ln_so"]], dim=1)
             s["score"].add_nees(x, x_true, P)
         return s
 

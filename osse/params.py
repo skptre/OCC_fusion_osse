@@ -159,6 +159,10 @@ reg("GAUGE_GAIN_SD", 0.30, "sourced",
 reg("GAUGE_DRIFT_SD", 0.02, "assumption", PH + "; gain drift rate, 1-sigma (ln units per day)", becomes="vendor")
 reg("GAUGE_NOISE", 0.01, "assumption", PH + "; noise per 30 s reading, 1-sigma (ln units)",
     becomes="vendor", note="needs INFICON noise + sampling rate, converted to 30 s averages")
+reg("GAUGE_MODEL", "ram", "choice",
+    "ram = gauge sees chamber density from the ram flux balance n_c,i = n_i V cos(theta) sqrt(2 pi m_i / (k T_c)) "
+    "(free-molecular orifice, speed ratio s >> 1; thermal terms ~exp(-s^2), <1% even for H), so species weights become "
+    "R_i * sqrt(m_i / m_N2); V, cos(theta), T_c common to all gases (known, folded into gain); static = R_i only (old)")
 
 
 # FIPEX (atomic O)
@@ -201,3 +205,14 @@ reg("LEAK_NOISE", 0.05, "assumption",
     "in-flight calibrated argon leak: absolute gauge-gain reading error, 1-sigma (ln units); L9 budget 3-6%, "
     "leak supplier spec not yet confirmed", becomes="vendor")
 reg("LEAK_WINDOW", 86400.0, "choice", "one leak calibration pulse per UTC day (s)")
+reg("SO_SD", 0.16, "sourced",
+    "1-sigma of ln S_O around the filter's 0.56: physical bracket 0.5-0.77 (NIST cross sections, Explorer 17, Geoprobe); "
+    "0.77 sits at +2 sigma (ln(0.77/0.56) = 0.318) (ln units)")
+reg("SO_MODE", "consider", "choice",
+    "consider = S_O uncertainty carried but never estimated (Schmidt filter); estimate = in-flight S_O estimation; "
+    "off = SO_SD ignored (old behaviour)")
+reg("SO_TRUTH_SD", 0.16, "sweep",
+    "spread of the TRUE ln S_O across runs (0 = truth uses R_TRUE exactly); set equal to SO_SD for the fair "
+    "'filter fooled' test (ln units)")
+reg("SO_TRUTH_OFFSET", 0.0, "choice",
+    "fixed shift added to every run's true ln S_O; used only to measure sensitivities (consider analysis) (ln units)")
