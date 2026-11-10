@@ -101,6 +101,9 @@ reg("STORM_HOURS", (39.0, 78.0), "sourced",
 reg("QUIET_HOURS", (12.0, 39.0), "assumption",
     "after 12 h of filter settling, up to storm onset; Kp <= 3.7 throughout (GFZ definitive) (hours after T0)",
     becomes="choice", note="settling time to be justified by NEES / convergence")
+reg("RECOVERY_HOURS", (78.0, 120.0), "choice",
+    "after the main Kp>=5 period to run end; includes the second Kp>=5 burst (93-102 h) and recovery; "
+    "scored so post-storm behaviour is not hidden (hours after T0)")
 
 # operator baseline: what forecasters actually had
 reg("FORECAST_DIR", "data/swpc", "sourced",
@@ -156,8 +159,9 @@ reg("GAUGE_NOISE", 0.01, "assumption", PH + "; noise per 30 s reading, 1-sigma (
 
 
 # FIPEX (atomic O)
-reg("O_GAIN_SD", 0.12, "assumption", PH + "; calibration error, 1-sigma (ln units)",
-    becomes="vendor", note="Stuttgart Nov 9; fallback WADIS-2 Table A1")
+reg("O_GAIN_SD", 0.30, "vendor",
+    "Stuttgart IRS call Nov 9 2026: FIPEX absolute accuracy ~30%, depends on calibration instruments; "
+    "taken as 1-sigma (conservative) (ln units)", note="confirm against the spec sheet; is it repeatability or accuracy?")
 reg("O_DRIFT_MEAN", 0.03, "assumption", PH + "; mean sensitivity loss (ln units per day, always downward)",
     becomes="vendor")
 reg("O_DRIFT_SD", 0.01, "assumption", PH + "; its spread, 1-sigma (ln units per day)", becomes="vendor")
@@ -174,9 +178,9 @@ reg("P0_MSIS_SD", (0.04777, 0.06116, 0.01001), "sourced",
 reg("Q_MSIS_SD", (0.002503, 0.004619, 0.007333), "sourced",
     "derived: step-to-step sd of ln(truth/prior) from the MSIS tables, dO, dN2, dHe; wiggle part added in code "
     "(ln units)")
-reg("ATMOS_COVARIANCE", "correlated", "choice",
-    "P0 and Q are the covariance of the true atmosphere errors and their increments; the common wiggle moves all "
-    "gases together, so its part fills the whole 3x3 block, per-gas and model-gap parts stay on the diagonal")
+reg("FILTER_STRUCTURE", "gauss-markov", "choice",
+    "per gas group: slow model gap (random walk) + common and own wiggles (AR(1), same tau/sigma as truth); "
+    "lets the filter separate persistent sensor gains from atmosphere; prototype: run-to-run spread ~halved")
 reg("CD_DRIFT_SD", 0.01, "assumption",
     "slow C_D change from attitude and surface state over days (ln units per day)", becomes="sweep")
 reg("USE_SENSORS", ("gauge", "o", "drag"), "choice", "full suite; subsets run as comparisons")

@@ -5,7 +5,7 @@ from simt import RunningStats
 from osse.params import value
 from osse.filter import STATES
 
-WINDOWS = ("quiet", "storm")
+WINDOWS = ("quiet", "storm", "recovery")
 ESTIMATES = ("rho_prior", "rho_gauge", "rho_fused", "O_prior", "O_fused", "N2_prior", "N2_fused")
 SENSORS = ("gauge", "o", "drag")
 

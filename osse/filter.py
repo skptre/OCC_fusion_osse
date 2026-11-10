@@ -1,16 +1,30 @@
+# Gauss-Markov structure: each gas group's log correction = slow model gap (random walk) + common wiggle + its own wiggle (both AR(1), matching the truth).
+
 import torch
 
-STATES = ("dO", "dN2", "dHe", "gauge_gain", "o_gain", "cd_bias")
+STATES = ("gap_O", "gap_N2", "gap_He", "w_common", "w_O", "w_N2", "w_He",
+          "gauge_gain", "o_gain", "cd_bias")
 IDX = {name: i for i, name in enumerate(STATES)}
 N_STATES = len(STATES)
-N_ATOMS = 3
+GAP = slice(0, 3)
+WC = IDX["w_common"]
+WG = slice(4, 7)
+
+
+def correction(x):
+    return x[:, GAP] + x[:, WC:WC + 1] + x[:, WG]
+
 
 def group_H(terms, G, col):
     tot = terms.sum(1)
+    share = (terms / tot[:, None]) @ G
     H = torch.zeros(terms.shape[0], N_STATES, device=terms.device, dtype=terms.dtype)
-    H[:, :N_ATOMS] = (terms / tot[:, None]) @ G
+    H[:, GAP] = share
+    H[:, WC] = share.sum(1)
+    H[:, WG] = share
     H[:, col] = 1.0
     return H, tot
 
+
 def density(n_prior, x, gidx, mass, amu):
-    return (n_prior * torch.exp(x[:, gidx]) * mass).sum(1) * amu
+    return (n_prior * torch.exp(correction(x)[:, gidx]) * mass).sum(1) * amu

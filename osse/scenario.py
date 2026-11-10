@@ -2,10 +2,10 @@ import math
 import numpy as np
 import torch
 
-from simt import Scenario, kf_update_scalar
+from simt import Scenario, kf_predict, kf_update_scalar
 from osse.atmosphere import build_tables
 from osse.params import value
-from osse.filter import IDX, N_STATES, density
+from osse.filter import IDX, N_STATES, GAP, WC, WG, correction, density
 from osse.sensors import drag_predict, drag_true, gauge_predict, gauge_true, o_predict, o_true
 from osse.metrics import Scorer
 
@@ -60,24 +60,31 @@ class OSSE(Scenario):
         group = value("GROUP")
         self.gidx = torch.as_tensor(group, device=device)
         self.G = f(np.eye(3)[list(group)])
-        na = 3
         common_var = self.kick_common ** 2 / (1 - self.a_common ** 2)
         species_var = self.kick_species ** 2 / (1 - self.a_species ** 2)
-        common_dq = 2 * self.kick_common ** 2 / (1 + self.a_common)
-        species_dq = 2 * self.kick_species ** 2 / (1 + self.a_species)
+        day_frac2 = self.dt / 86400
+        o_drift_rms = math.hypot(get("O_DRIFT_MEAN"), get("O_DRIFT_SD"))
+        gg, og, cd = IDX["gauge_gain"], IDX["o_gain"], IDX["cd_bias"]
 
         P0 = np.zeros((N_STATES, N_STATES))
-        P0[:na, :na] = common_var + np.diag(np.array(get("P0_MSIS_SD")) ** 2 + species_var)
-        P0[na:, na:] = np.diag(np.array([get("GAUGE_GAIN_SD"), get("O_GAIN_SD"), get("CD_SD")]) ** 2)
+        P0[GAP, GAP] = np.diag(np.array(get("P0_MSIS_SD")) ** 2)
+        P0[WC, WC] = common_var
+        P0[WG, WG] = np.eye(3) * species_var
+        P0[gg, gg], P0[og, og], P0[cd, cd] = get("GAUGE_GAIN_SD") ** 2, get("O_GAIN_SD") ** 2, get("CD_SD") ** 2
 
-        day_frac = math.sqrt(self.dt / 86400)
-        o_drift_rms = math.hypot(get("O_DRIFT_MEAN"), get("O_DRIFT_SD"))
         Q = np.zeros((N_STATES, N_STATES))
-        Q[:na, :na] = common_dq + np.diag(np.array(get("Q_MSIS_SD")) ** 2 + species_dq)
-        Q[na:, na:] = np.diag(np.array([get("GAUGE_DRIFT_SD"), o_drift_rms, get("CD_DRIFT_SD")]) ** 2) * day_frac ** 2
+        Q[GAP, GAP] = np.diag(np.array(get("Q_MSIS_SD")) ** 2)
+        Q[WC, WC] = self.kick_common ** 2
+        Q[WG, WG] = np.eye(3) * self.kick_species ** 2
+        Q[gg, gg] = get("GAUGE_DRIFT_SD") ** 2 * day_frac2
+        Q[og, og] = o_drift_rms ** 2 * day_frac2
+        Q[cd, cd] = get("CD_DRIFT_SD") ** 2 * day_frac2
 
-        self.P0 = f(P0)
-        self.Qd = f(Q)
+        F = np.eye(N_STATES)
+        F[WC, WC] = self.a_common
+        F[WG, WG] = np.eye(3) * self.a_species
+
+        self.P0, self.Qd, self.F = f(P0), f(Q), f(F)
 
     def sample(self, n_runs, generator, device, dtype):
         self._build(device, dtype)
@@ -144,9 +151,9 @@ class OSSE(Scenario):
         r_bar = (n_prior * self.r_filt_t).sum(1) / n_tot_prior
         rho_gauge = torch.exp(z_gauge) / r_bar * rho_prior / n_tot_prior
 
-        P = P + self.Qd
+        x, P = kf_predict(x, P, self.F, self.Qd)
         if "gauge" in use:
-            e = torch.exp(x[:, self.gidx])
+            e = torch.exp(correction(x)[:, self.gidx])
             h, H = gauge_predict(n_prior, e, self.r_filt_t, self.G, x)
             x, P, info = kf_update_scalar(x, P, H, z_gauge, h, get("GAUGE_NOISE") ** 2, return_info=True)
             s["score"].add_nis("gauge", info)
@@ -158,7 +165,7 @@ class OSSE(Scenario):
         if "drag" in use and day_end:
             m = self.drag_steps
             z_drag = drag_true(s["truth_day"] / m, p["cd_bias"], get("DRAG_NOISE"), randn(n))
-            e = torch.exp(x[:, self.gidx])
+            e = torch.exp(correction(x)[:, self.gidx])
             rho_now = density(n_prior, x, self.gidx, self.mass, amu)
             h, H = drag_predict(self.mass, self.prior_day[p["phase"], k // m], e, self.G,
                                 s["est_day"] + rho_now, m, x)
@@ -175,16 +182,20 @@ class OSSE(Scenario):
         w = s["score"].window(tk / 3600)
         if w is not None:
             o, n2 = self.o_idx, self.n2_idx
-            e = torch.exp(x[:, self.gidx])
+            e = torch.exp(correction(x)[:, self.gidx])
             est = {"rho_prior": rho_prior, "rho_gauge": rho_gauge, "rho_fused": rho_est,
                    "O_prior": n_prior[:, o], "O_fused": n_prior[:, o] * e[:, o],
                    "N2_prior": n_prior[:, n2], "N2_fused": n_prior[:, n2] * e[:, n2]}
             truth = {"rho": rho_true, "O": n_true[:, o], "N2": n_true[:, n2]}
             s["score"].add_errors(w, est, truth)
+            msis = self.truth[p["phase"], k]
+            he = self.he_idx
             x_true = torch.stack([
-                torch.log(n_true[:, o] / n_prior[:, o]),
-                torch.log(n_true[:, n2] / n_prior[:, n2]),
-                torch.log(n_true[:, self.he_idx] / n_prior[:, self.he_idx]),
+                torch.log(msis[:, o] / n_prior[:, o]),
+                torch.log(msis[:, n2] / n_prior[:, n2]),
+                torch.log(msis[:, he] / n_prior[:, he]),
+                s["common"],
+                s["species"][:, o], s["species"][:, n2], s["species"][:, he],
                 p["gauge_gain"] + p["gauge_drift"] * tk,
                 p["o_gain"] + p["o_drift"] * tk,
                 p["cd_bias"]], dim=1)
@@ -195,14 +206,16 @@ class OSSE(Scenario):
         o, n2 = self.o_idx, self.n2_idx
         x, P = s["x"], s["P"]
         n_prior = self.prior[p["phase"], k]
-        e = torch.exp(x[:, self.gidx])
+        e = torch.exp(correction(x)[:, self.gidx])
         tk = k * self.dt
+        a = torch.zeros(N_STATES, device=x.device, dtype=x.dtype)
+        a[[IDX["gap_N2"], WC, IDX["w_N2"]]] = 1.0
         return {
             "N2_truth": s["n_true"][:, n2], "N2_prior": n_prior[:, n2], "N2_fused": n_prior[:, n2] * e[:, n2],
             "O_truth": s["n_true"][:, o], "O_prior": n_prior[:, o], "O_fused": n_prior[:, o] * e[:, o],
-            "N2_sd": P[:, 1, 1].sqrt(),
-            "gauge_gain_est": x[:, 3], "gauge_gain_true": p["gauge_gain"] + p["gauge_drift"] * tk,
-            "o_gain_est": x[:, 4], "o_gain_true": p["o_gain"] + p["o_drift"] * tk,
+            "N2_sd": (a @ P @ a).sqrt(),
+            "gauge_gain_est": x[:, IDX["gauge_gain"]], "gauge_gain_true": p["gauge_gain"] + p["gauge_drift"] * tk,
+            "o_gain_est": x[:, IDX["o_gain"]], "o_gain_true": p["o_gain"] + p["o_drift"] * tk,
         }
 
     def score(self, s, params):
