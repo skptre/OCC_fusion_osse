@@ -136,6 +136,9 @@ reg("TRUTH_SPECIES_SD", 0.02, "assumption",
     "per-species small-scale composition structure: no published value; kept small vs the common term",
     becomes="sweep", note="sweep 0-0.10")
 reg("TRUTH_SPECIES_TAU", 100.0, "assumption", "same scale as the common structure (s)", becomes="sweep")
+reg("TRUTH_MSIS_VERSION", 2.1, "choice",
+    "atmosphere model for the TRUTH: 2.1 = identical twin, 0 = NRLMSISE-00 (fraternal sibling, Picone et al. 2002); "
+    "the prior always uses MSIS_VERSION")
 
 
 # CCG (gauge)
@@ -172,12 +175,14 @@ reg("O_NOISE", 0.05, "assumption", PH + "; noise per 30 s reading, 1-sigma (ln u
 reg("GROUP", (1, 1, 0, 2, 2, 1, 0), "choice",
     "which correction state scales each species (SPECIES order): O,N->O; N2,O2,Ar->N2; He,H->He; "
     "lumps minor species with the major one they track")
-reg("P0_MSIS_SD", (0.04777, 0.06116, 0.01001), "sourced",
-    "derived: RMS of ln(truth/prior) at run start from the MSIS tables (real drivers vs NOAA forecasts), "
-    "for dO, dN2, dHe; truth-wiggle part added in code (ln units)")
-reg("Q_MSIS_SD", (0.002503, 0.004619, 0.007333), "sourced",
-    "derived: step-to-step sd of ln(truth/prior) from the MSIS tables, dO, dN2, dHe; wiggle part added in code "
-    "(ln units)")
+reg("P0_MSIS_SD", (0.20, 0.20, 0.20), "sourced",
+    "initial model-gap sd for dO, dN2, dHe from published model-vs-data error, not the identical twin: "
+    "Bruinsma & Laurens 2024 JSWSC 14:28 storm std 14.5/21.6/27% (GOCE/CHAMP/GRACE); DE-2 NACS vs MSIS 2.1 storm days "
+    "rho -26..+11%, N2 -42..+15% (our replay, Nov 10); 20% best of 10/20/30 on the fraternal test (ln units)")
+reg("Q_MSIS_SD", (0.01001, 0.01848, 0.02933), "choice",
+    "model-gap random-walk step sd for dO, dN2, dHe per 30 s: 4x the forecast-only value from the twin tables; "
+    "x4 brings NEES 6.1 -> 3.3 on the fraternal truth; costs quiet N2 accuracy (ln units)",
+    note="tuned against the NRLMSISE-00 truth: re-check on DTM2020 truth so it is not tuned to one model")
 reg("FILTER_STRUCTURE", "gauss-markov", "choice",
     "per gas group: slow model gap (random walk) + common and own wiggles (AR(1), same tau/sigma as truth); "
     "lets the filter separate persistent sensor gains from atmosphere; prototype: run-to-run spread ~halved")
@@ -192,3 +197,7 @@ reg("DRAG_NOISE", 0.06, "sourced",
 reg("FILTER_SENSOR_BELIEF", "matched", "choice",
     "filter's starting sensor-state sd = the true calibration spreads and its R = the true sensor noise "
     "(filter knows its sensors); mismatched cases are the sweeps")
+reg("LEAK_NOISE", 0.05, "assumption",
+    "in-flight calibrated argon leak: absolute gauge-gain reading error, 1-sigma (ln units); L9 budget 3-6%, "
+    "leak supplier spec not yet confirmed", becomes="vendor")
+reg("LEAK_WINDOW", 86400.0, "choice", "one leak calibration pulse per UTC day (s)")

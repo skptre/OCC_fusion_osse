@@ -6,7 +6,7 @@ from simt import Scenario, kf_predict, kf_update_scalar
 from osse.atmosphere import build_tables
 from osse.params import value
 from osse.filter import IDX, N_STATES, GAP, WC, WG, correction, density
-from osse.sensors import drag_predict, drag_true, gauge_predict, gauge_true, o_predict, o_true
+from osse.sensors import drag_predict, drag_true, gauge_predict, gauge_true, o_predict, o_true, leak_true, leak_predict
 from osse.metrics import Scorer
 
 class OSSE(Scenario):
@@ -25,7 +25,7 @@ class OSSE(Scenario):
         self.dt = get("DT")
         self.a_common, self.kick_common = self._ar1(get("TRUTH_COMMON_SD"), get("TRUTH_COMMON_TAU"))
         self.a_species, self.kick_species = self._ar1(get("TRUTH_SPECIES_SD"), get("TRUTH_SPECIES_TAU"))
-        self.truth_np, self.prior_np, self.nper = build_tables(self.alt_km, self.n_phases, cache_dir)
+        self.truth_np, self.prior_np, self.nper = build_tables(self.alt_km, self.n_phases, cache_dir, get("TRUTH_MSIS_VERSION"))
         self.n_steps = self.truth_np.shape[1]
         self._key = None
 
@@ -171,6 +171,13 @@ class OSSE(Scenario):
                                 s["est_day"] + rho_now, m, x)
             x, P, info = kf_update_scalar(x, P, H, z_drag, h, get("DRAG_NOISE") ** 2, return_info=True)
             s["score"].add_nis("drag", info)
+        
+        leak_end = (k + 1) % int(get("LEAK_WINDOW") / self.dt) == 0
+        if "leak" in use and leak_end:
+            z_leak = leak_true(p["gauge_gain"], p["gauge_drift"], tk, get("LEAK_NOISE"), randn(n))
+            h, H = leak_predict(x)
+            x, P, info = kf_update_scalar(x, P, H, z_leak, h, get("LEAK_NOISE") ** 2, return_info=True)
+            s["score"].add_nis("leak", info)
 
         rho_est = density(n_prior, x, self.gidx, self.mass, amu)
         s["est_day"] = s["est_day"] + rho_est

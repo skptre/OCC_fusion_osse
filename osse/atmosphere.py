@@ -18,20 +18,23 @@ def orbit(t, alt_km, raan0):
     return lat, lon, 2 * math.pi / n
 
 
-def run_msis(dates, lat, lon, alt_km, f107, f107a, aps):
+def run_msis(dates, lat, lon, alt_km, f107, f107a, aps, version):
     from pymsis import msis
     n = len(dates)
     o = msis.calculate(dates, lon, lat, np.full(n, float(alt_km)), np.broadcast_to(f107, (n,)), np.broadcast_to(f107a, (n,)),
-                       aps, geomagnetic_activity=value("GEOMAG_MODE"), version=value("MSIS_VERSION"))
+                       aps, geomagnetic_activity=value("GEOMAG_MODE"), version=version)
     o = np.nan_to_num(o, nan=0.0)
     cols = {"N2": o[:, 1], "O2": o[:, 2], "O": o[:, 3] + o[:, 8], "He": o[:, 4], "H": o[:, 5],
             "Ar": o[:, 6], "N": o[:, 7]}
     return np.stack([cols[s] for s in value("SPECIES")], axis=1)
 
 
-def build_tables(alt_km, n_phases, cache_dir="cache"):
+def build_tables(alt_km, n_phases, cache_dir="cache", truth_version=None):
+    if truth_version is None:
+        truth_version = value("TRUTH_MSIS_VERSION")
     nday = value("NDAY")
-    path = os.path.join(cache_dir, f"msis_real_{alt_km}km_{n_phases}ph_{nday}d.npz")
+    tag = "" if truth_version == value("MSIS_VERSION") else f"_truthv{truth_version:g}"
+    path = os.path.join(cache_dir, f"msis_real_{alt_km}km_{n_phases}ph_{nday}d{tag}.npz")
     if os.path.exists(path):
         d = np.load(path)
         return d["truth"], d["prior"], int(d["nper"])
@@ -45,8 +48,8 @@ def build_tables(alt_km, n_phases, cache_dir="cache"):
     period = 0.0
     for j in range(n_phases):
         lat, lon, period = orbit(t, alt_km, 2 * math.pi * j / n_phases)
-        truth[j] = run_msis(dates, lat, lon, alt_km, f107, f107a, aps_truth)
-        prior[j] = run_msis(dates, lat, lon, alt_km, f107, value("PRIOR_F107A"), aps_prior)
+        truth[j] = run_msis(dates, lat, lon, alt_km, f107, f107a, aps_truth, truth_version)
+        prior[j] = run_msis(dates, lat, lon, alt_km, f107, value("PRIOR_F107A"), aps_prior, value("MSIS_VERSION"))
     nper = int(round(period / value("DT")))
     os.makedirs(cache_dir, exist_ok=True)
     np.savez_compressed(path, truth=truth, prior=prior, nper=nper)

@@ -25,3 +25,11 @@ def drag_true(rho_window_mean, cd_bias, sd, noise):
 def drag_predict(mass, prior_mean, e, G, window_sum, n_steps, x):
     H, _ = group_H(mass * prior_mean * e, G, IDX["cd_bias"])
     return torch.log(window_sum / n_steps) + x[:, IDX["cd_bias"]], H
+
+def leak_true(gain, drift, tk, sd, noise):
+    return gain + drift * tk + sd * noise
+
+def leak_predict(x):
+    H = torch.zeros_like(x)
+    H[:, IDX["gauge_gain"]] = 1.0
+    return x[:, IDX["gauge_gain"]], H

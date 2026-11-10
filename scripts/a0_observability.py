@@ -58,7 +58,7 @@ def main():
             v = L @ V[:, -j]
             v = v / np.abs(v).max()
             top = np.argsort(-np.abs(v))[:4]
-            print(f"     direction {j}: " + ", ".join(f"{STATES[t]} {v[t]:+.2f}" for t in top))
+            print(f"     direction {j}: " + ", ".join(f"{STATES[sl[t]]} {v[t]:+.2f}" for t in top))
 
     print("\n3) Fisher check: within-orbit variation of each group's share of the gauge signal")
     R = np.array(value("R_FILT"))

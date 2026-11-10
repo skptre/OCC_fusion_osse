@@ -7,7 +7,7 @@ from osse.filter import STATES
 
 WINDOWS = ("quiet", "storm", "recovery")
 ESTIMATES = ("rho_prior", "rho_gauge", "rho_fused", "O_prior", "O_fused", "N2_prior", "N2_fused")
-SENSORS = ("gauge", "o", "drag")
+SENSORS = ("gauge", "o", "drag", "leak")
 
 class Scorer:
 
