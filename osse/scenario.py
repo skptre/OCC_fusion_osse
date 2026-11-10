@@ -58,6 +58,7 @@ class OSSE(Scenario):
         self.truth = f(self.truth_np)
         self.prior = f(self.prior_np)
         self.prior_day = f(day_means)
+        self.o_ref = f(self.truth_np[:, :, self.o_idx].mean(1))
         self.mass = f(value("MASS"))
         w = np.sqrt(np.array(value("MASS")) / value("MASS")[self.n2_idx]) if get("GAUGE_MODEL") == "ram" else 1.0
         self.r_true_t = f(np.array(get("R_TRUE")) * w)
@@ -126,6 +127,10 @@ class OSSE(Scenario):
             "truth_day": zeros(n),
             "est_day": zeros(n),
             "score": Scorer(n, ref.device, ref.dtype),
+            "up_g": torch.ones(n, dtype=torch.bool, device=ref.device),
+            "up_o": torch.ones(n, dtype=torch.bool, device=ref.device),
+            "cd_walk": zeros(n),
+            "cd_sum": zeros(n),
         }
 
     def step(self, s, k, p, generator):
@@ -151,10 +156,24 @@ class OSSE(Scenario):
 
         s["truth_day"] = s["truth_day"] + rho_true
 
+        physics_cd = get("CD_TRUTH_MODEL") == "physics"
+        if physics_cd:
+            if k > 0:
+                s["cd_walk"] = s["cd_walk"] + get("CD_DRIFT_SD") * math.sqrt(self.dt / 86400) * randn(n)
+            s["cd_sum"] = s["cd_sum"] + get("CD_O_COEF") * torch.log(n_true[:, self.o_idx] / self.o_ref[p["phase"]])
+
         n_g = n_true.clone()
         n_g[:, self.o_idx] = n_g[:, self.o_idx] * torch.exp(p["ln_so"])
         z_gauge = gauge_true(n_g, self.r_true_t, p["gauge_gain"], p["gauge_drift"], tk, get("GAUGE_NOISE"), randn(n))
         z_o = o_true(n_true[:, self.o_idx], p["o_gain"], p["o_drift"], tk, get("O_NOISE"), randn(n))
+
+        if get("GAPS"):
+            s["up_g"] = self._flip(s["up_g"], get("GAUGE_GAP_EVERY"), get("GAUGE_GAP_LEN"), generator)
+            s["up_o"] = self._flip(s["up_o"], get("O_GAP_EVERY"), get("O_GAP_LEN"), generator)
+        if get("OUTLIER_RATE") > 0:
+            hit = torch.rand(n, generator=generator, device=dev, dtype=dt) < get("OUTLIER_RATE")
+            z_gauge = z_gauge + hit.to(dt) * get("OUTLIER_SIZE") * torch.sign(randn(n))
+        gate = get("NIS_GATE") or None
 
         n_tot_prior = n_prior.sum(1)
         r_bar = (n_prior * self.r_filt_t).sum(1) / n_tot_prior
@@ -164,16 +183,19 @@ class OSSE(Scenario):
         if "gauge" in use:
             e = torch.exp(correction(x)[:, self.gidx])
             h, H = gauge_predict(n_prior, e, self.r_filt_t, self.G, x, self.o_idx)
-            x, P, info = consider_update(x, P, H, z_gauge, h, get("GAUGE_NOISE") ** 2, self.consider)
+            x, P, info = consider_update(x, P, H, z_gauge, h, get("GAUGE_NOISE") ** 2, self.consider, mask=s["up_g"], gate=gate)
+            s["score"].add_nis("gauge", info, offered=s["up_g"])
             s["score"].add_nis("gauge", info)
         if "o" in use:
             h, H = o_predict(n_prior[:, self.o_idx], x)
-            x, P, info = consider_update(x, P, H, z_o, h, get("O_NOISE") ** 2, self.consider)
+            x, P, info = consider_update(x, P, H, z_o, h, get("O_NOISE") ** 2, self.consider, mask=s["up_o"], gate=gate)
+            s["score"].add_nis("o", info, offered=s["up_o"])
             s["score"].add_nis("o", info)
         day_end = (k + 1) % self.drag_steps == 0
         if "drag" in use and day_end:
             m = self.drag_steps
-            z_drag = drag_true(s["truth_day"] / m, p["cd_bias"], get("DRAG_NOISE"), randn(n))
+            cd_true = p["cd_bias"] + (s["cd_walk"] + s["cd_sum"] / m if physics_cd else 0.0)
+            z_drag = drag_true(s["truth_day"] / m, cd_true, get("DRAG_NOISE"), randn(n))
             e = torch.exp(correction(x)[:, self.gidx])
             rho_now = density(n_prior, x, self.gidx, self.mass, amu)
             h, H = drag_predict(self.mass, self.prior_day[p["phase"], k // m], e, self.G,
@@ -193,6 +215,7 @@ class OSSE(Scenario):
         if day_end:
             s["truth_day"] = torch.zeros_like(rho_true)
             s["est_day"] = torch.zeros_like(rho_est)
+            s["cd_sum"] = torch.zeros_like(s["cd_sum"])
         s["x"], s["P"] = x, P
 
         w = s["score"].window(tk / 3600)
@@ -214,7 +237,7 @@ class OSSE(Scenario):
                 s["species"][:, o], s["species"][:, n2], s["species"][:, he],
                 p["gauge_gain"] + p["gauge_drift"] * tk,
                 p["o_gain"] + p["o_drift"] * tk,
-                p["cd_bias"], 
+                p["cd_bias"] + ((s["cd_walk"] + get("CD_O_COEF") * torch.log(n_true[:, self.o_idx] / self.o_ref[p["phase"]])) if physics_cd else 0.0), 
                 torch.full_like(p["cd_bias"], self.so_true) + p["ln_so"]], dim=1)
             s["score"].add_nees(x, x_true, P)
         return s
@@ -240,3 +263,7 @@ class OSSE(Scenario):
 
     def score(self, s, params):
         return s["score"].summary()
+    
+    def _flip(self, up, every, length, generator):
+        u = torch.rand(up.shape[0], generator=generator, device=up.device, dtype=torch.float64)
+        return torch.where(up, u >= self.dt / every, u < self.dt / length)

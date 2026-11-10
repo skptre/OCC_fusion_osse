@@ -17,6 +17,7 @@ class Scorer:
         self.nees = RunningStats(n, device, dtype)
         self.nees_state = {s: RunningStats(n, device, dtype) for s in STATES}
         self.z_state = {s: RunningStats(n, device, dtype) for s in STATES}
+        self.rej = {s: RunningStats(n, device, dtype) for s in SENSORS}
     
     def window(self, hours):
         for w in WINDOWS:
@@ -30,8 +31,10 @@ class Scorer:
         for q in ESTIMATES:
             self.errors[(w, q)].add(est[q] / truth[q.split("_")[0]] - 1)
 
-    def add_nis(self, sensor, info):
+    def add_nis(self, sensor, info, offered=None):
         self.nis[sensor].add(info["nis"], mask=info["accepted"])
+        if offered is not None:
+            self.rej[sensor].add((~info["accepted"]).to(info["nis"].dtype), mask=offered)
 
     def add_nees(self, x, x_true, P):
         d = (x - x_true).unsqueeze(-1)
@@ -49,7 +52,7 @@ class Scorer:
         for (w, q), stats in self.errors.items():
             out.update(stats.summary(f"{w}_{q}"))
         for s, stats in self.nis.items():
-            out[f"nis_{s}"] = stats.summary("x")["x_bias"]
+            out[f"rej_{s}"] = self.rej[s].summary("x")["x_bias"]
         out["nees"] = self.nees.summary("x")["x_bias"]
         for s in STATES:
             out[f"nees_{s}"] = self.nees_state[s].summary("x")["x_bias"]

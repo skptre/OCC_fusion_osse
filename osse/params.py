@@ -163,6 +163,12 @@ reg("GAUGE_MODEL", "ram", "choice",
     "ram = gauge sees chamber density from the ram flux balance n_c,i = n_i V cos(theta) sqrt(2 pi m_i / (k T_c)) "
     "(free-molecular orifice, speed ratio s >> 1; thermal terms ~exp(-s^2), <1% even for H), so species weights become "
     "R_i * sqrt(m_i / m_N2); V, cos(theta), T_c common to all gases (known, folded into gain); static = R_i only (old)")
+reg("CD_TRUTH_MODEL", "constant", "choice",
+    "physics = true C_D = bias + O-adsorption term + slow random walk; constant = bias only (old)")
+reg("CD_O_COEF", -0.04, "assumption",
+    "d ln C_D / d ln n_O from O-adsorption accommodation: s_alpha = d lnC_D/d alpha = -1.2 (Moe & Bowman 2005 sphere "
+    "tables) x (alpha_s - alpha_c) 0.4 (assumed) x Langmuir d theta/d ln p = theta(1-theta) 0.09 at theta0 = 0.9 "
+    "(assumed) = -0.043; a factor-2 O drop gives +3% C_D, matching the 2-5% storm estimate (W3)")
 
 
 # FIPEX (atomic O)
@@ -193,11 +199,12 @@ reg("FILTER_STRUCTURE", "gauss-markov", "choice",
 reg("CD_DRIFT_SD", 0.01, "assumption",
     "slow C_D change from attitude and surface state over days (ln units per day)", becomes="sweep")
 reg("USE_SENSORS", ("gauge", "o", "drag"), "choice", "full suite; subsets run as comparisons")
-reg("DRAG_WINDOW", 86400.0, "sourced",
-    "GPS-only drag gives day-averaged beta (Lowe & D'Amico 2026); one estimate per UTC day (s)")
-reg("DRAG_NOISE", 0.06, "sourced",
-    "Lowe & D'Amico 2026: day-averaged beta error 6% for the May 2024 storm (16/9/5% low/mean/high solar activity); "
-    "their RMS percent error used as 1-sigma (ln units)")
+reg("DRAG_WINDOW", 5430.0, "choice",
+    "one GPS drag density per orbit (181 x 30 s at 300 km); W3 research: per-orbit feasible at 250-350 km "
+    "(Ray et al. 2023 AMOS; van den IJssel et al. 2020 ASR 65:1758); daily 86400 = fallback (Lowe & D'Amico 2026)")
+reg("DRAG_NOISE", 0.15, "sourced",
+    "per-orbit density error, single-frequency host GPS (0.3-1 m orbits): 10-25% (W3, derived from Ray et al. 2023, "
+    "Constant et al. 2024); dual-frequency 4-8% -> run 0.05 as upside; daily fallback 0.06 (Lowe & D'Amico 2026)")
 reg("FILTER_SENSOR_BELIEF", "matched", "choice",
     "filter's starting sensor-state sd = the true calibration spreads and its R = the true sensor noise "
     "(filter knows its sensors); mismatched cases are the sweeps")
@@ -206,8 +213,9 @@ reg("LEAK_NOISE", 0.05, "assumption",
     "leak supplier spec not yet confirmed", becomes="vendor")
 reg("LEAK_WINDOW", 86400.0, "choice", "one leak calibration pulse per UTC day (s)")
 reg("SO_SD", 0.16, "sourced",
-    "1-sigma of ln S_O around the filter's 0.56: physical bracket 0.5-0.77 (NIST cross sections, Explorer 17, Geoprobe); "
-    "0.77 sits at +2 sigma (ln(0.77/0.56) = 0.318) (ln units)")
+    "1-sigma of ln S_O around 0.56: bracket 0.51 (O/N2 ionization cross-section ratio at 70 eV; Laher & Gilmore 1990 "
+    "JPCRD 19:277 + NIST BEB) to 0.71 (full O->O2 recombination in the chamber, S_O2/sqrt2; Newton & Horowitz 1969 "
+    "NASA TN D-5447 App. A); never measured for MAG084; gettering can push it lower (Pelz & Newton 1967) (ln units)")
 reg("SO_MODE", "consider", "choice",
     "consider = S_O uncertainty carried but never estimated (Schmidt filter); estimate = in-flight S_O estimation; "
     "off = SO_SD ignored (old behaviour)")
@@ -216,3 +224,18 @@ reg("SO_TRUTH_SD", 0.16, "sweep",
     "'filter fooled' test (ln units)")
 reg("SO_TRUTH_OFFSET", 0.0, "choice",
     "fixed shift added to every run's true ln S_O; used only to measure sensitivities (consider analysis) (ln units)")
+
+
+reg("GAPS", False, "choice", "simulate sensor outages in the truth and skip them in the filter")
+reg("GAUGE_GAP_EVERY", 43200.0, "assumption",
+    "mean time between gauge outages (s): host power or mode interruptions; stress scenario, no vendor data")
+reg("GAUGE_GAP_LEN", 600.0, "assumption",
+    "mean gauge outage incl. re-ignition (s); IKR084/085/086 manual: ignition ~60 s at 1e-8 mbar, ~300 s at 1e-9 (clean head)")
+reg("O_GAP_EVERY", 86400.0, "assumption", "mean time between FIPEX outages (s); stress scenario, no vendor data")
+reg("O_GAP_LEN", 1800.0, "assumption", "mean FIPEX outage incl. heater warm-up (s); no vendor data")
+reg("OUTLIER_RATE", 0.0, "assumption",
+    "probability per gauge reading of a spike (mode jump or discharge glitch); stress value 1e-3; "
+    "Li & Jousten 2003 report inverted-magnetron discontinuities, no rate published")
+reg("OUTLIER_SIZE", 0.3, "assumption", "gauge spike size, +/- (ln units)")
+reg("NIS_GATE", 15.1, "choice",
+    "reject a gauge or FIPEX reading if NIS > 15.1 (chi-square 1 dof, p = 1e-4); 0 = no gate")
