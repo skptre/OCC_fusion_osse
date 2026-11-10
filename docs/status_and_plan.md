@@ -131,6 +131,88 @@ No other internal timeline: the work goes as fast as it can be done correctly.
   - **Phase 2 tests:** vacuum pump-down corona test + thermal-vacuum.
   - **Risk register entry.**
 
+## 7a. PROPOSAL-RELEVANT RESULTS SO FAR (Nov 9; preliminary until Phases A–C confirm; details in docs/research_findings_2026-11-09.md)
+
+**Scoring windows** (hours after T0 = 2024-05-09 00 UT):
+- quiet 12–39
+- storm 39–78 (Kp ≥ 5, NOAA G1+)
+- recovery 78–120 (includes the second Kp burst at 93–102)
+
+Always report all three; never hide recovery.
+
+**Current OSSE numbers** (Gauss-Markov filter, FIPEX 30%, gauge 30%, placeholder drifts, identical-twin truth, 300 km, 51.6°; P10–P90):
+- Density bias: quiet −4.6% (−7.8…−1.4), storm −4.1% (−9.5…+1.7), recovery −6.8% (−14…+0.6). Precision 1.2–1.6%.
+- **Inside OCC's 20%/10% in all windows.**
+
+**What the suite measures:**
+- density + O (measured); N₂ (inferred)
+- **He, storm O₂, N credibly inferred** by a regularised driver fit. Fraternal-twin storm errors He ~8–15%, O₂ ~20–25%, N ~13–19%, vs forecast 36–271%.
+- Ar and H model-only.
+- DE-2 (1981–83) real-data replay is the validation.
+
+**O + N₂ coverage:**
+- **≥90% of particles at 250–400 km in all conditions.**
+- Limits: He at solar-min quiet high latitude above ~400 km; O₂ up to 11% of mass in high-latitude storms at ≤300 km.
+- Claims: composition 250–400 km (to 450 km with the He caveat); density to ~500 km+.
+
+**Key strengths to pitch:**
+1. **S_O (never measured) estimated in flight** by a likelihood filter bank (true 0.70 → 0.709, P10–P90 0.66–0.77, one unit, 5 days).
+2. **Accuracy robust to FIPEX's 30% calibration** (results ~unchanged from 12% to 30%).
+3. **The filter self-calibrates sensor gains** (A0: ~84% of the gain uncertainty removed; caveat: partly because the prior's MSIS error is 5% in the identical twin, while real MSIS is 15–27%).
+4. **Storms are our best case:** most composition variation, N₂ share 30–53%, forecasts fail (Ap 90 forecast vs 271 actual).
+5. Honest, validated uncertainty (NIS ≈ 1 on all sensors).
+
+**Proven limits (A0):**
+- The only blind spots are He (physics) and the **global scale** (atmosphere level vs all three calibration factors together; ~33–45% of its uncertainty remains).
+- **Relative composition is well determined.**
+- Absolute level = the calibration chain (drag C_D, ground calibration). That's the classic sensor-registration rank deficiency (Okello & Ristic 2003).
+
+**Known weak spots + mitigations:**
+- Recovery composition (N₂ −14%): calibration degeneracy lingering after the storm. Fixes: ground smoother (Phase B), drift spec, ground cross-calibration.
+- NEES ≈ 3: consider parameters (Phase B).
+- Gauge outgassing background (Phase B state).
+- FIPEX drift: no published number anywhere → a sweep → requirement.
+
+**Vendor facts (Stuttgart, Nov 9):**
+- FIPEX ~30% accuracy; no drift data; ~$80k/sensor.
+- Gold only (Pt − Au "near impossible").
+- 2 bytes/sample.
+- SWARM-EX = planned user (**not flown**; launch NET Dec 29 2026).
+
+**Differentiation vs SWARM-EX:**
+- whole-orbit density + composition from one host vs their O-only, dayside-only
+- in-flight self-calibration vs redundancy
+- S_O estimation
+- published, quantified uncertainty
+
+**Proposal ideas to keep:**
+- model-improvement demo (relevance; HASDM-style driver estimation + forecast skill)
+- ablation (drag-only vs + gauge vs full suite)
+- calibration chain (ground → commissioning → in-flight → optional fleet ubercal)
+- event-triggered telemetry
+- Explorer 32 heritage (relative from the gauge, absolute from drag)
+- Explorer 17 precedent for bracketing O recombination
+
+**Reviewer objections, with answers:** see research_findings §10. Plus the magnet/host-ADCS hosting risk (mech team).
+
+**Not yet defensible as final:** any number from the identical twin. The fraternal truth (C2) + DE-2 + vendor numbers decide the final figures.
+
+## 7b. Findings log (revisit with the user before Phase A results are final)
+From the first real-driver run (Nov 8: 200 runs, 300 km, 51.6°, placeholder sensor numbers, MKS gas factors). None blocks progress; each has a planned fix.
+1. **Baseline looks too good (identical twin).** Storm prior error is −11.5% ± 6.6% density, vs 21.6% typical NRLMSISE-00 storm error at 300–450 km (Bruinsma & Laurens 2024). Cause: truth and prior are both MSIS and differ only in drivers. This understates our improvement (conservative but unrealistic). **Fix:** fraternal-twin truth (C2) + real satellite truth (C3).
+2. **S_O mismatch appears as composition bias.** A 5.5% S_O error (filter 0.55 vs truth 0.58) gives quiet O +4.6% / N₂ −8.5%, storm O +2.3% / N₂ −2.0%. Worse on quiet days (small N₂ share), as derived earlier. **Fix:** A2 (S_O fixed vs estimated), then the S_O state in Phase B.
+3. **Filter overconfident: NEES ≈ 5.9 (should be ≈1) while NIS ≈ 0.9.** Likely causes: S_O bias not modeled; FIPEX drift is a one-sided slope in truth but a zero-mean random walk in the filter; species lumping; truth wiggles not represented in Q. **Fix:** per-state NEES diagnosis (now), then Phase B (drift-rate state, S_O state, Q derived from truth statistics); validated in C7. Matters for the Performance rubric ("realistic uncertainty").
+   - **Diagnosed (Nov 8):** per-state NEES was 0.6–1.0 but the joint value 5.9, with z-values showing a coherent shift (dO +0.49, dN₂ −0.48, O-gain −0.51, gauge gain +0.39). That's an unmodeled bias along a well-determined combination of states. **Test:** filter given the true gas factors (`R_FILT = R_TRUE`) → NEES **0.79**, z's ≈ 0 (except He). So the 5.5% S_O mismatch was the cause. This is the textbook consider/Schmidt-Kalman case (Tapley et al. 2004) and confirms why A2 + the S_O state matter.
+   - **Remaining after the fix:** quiet N₂ −6.4% with O +1.8%. Consistent with the quiet-day amplification (N₂ ≈19% of the gauge signal vs O ≈78%, so a 1.8% O error becomes ~7% in N₂). The source of the residual O bias is not yet tested (candidates: one-sided FIPEX drift vs the filter's zero-mean random walk; atomic N lumped with O). He z ≈ −0.9 unchanged (forecast He error passes through; sensors barely see He).
+4. **Drag NIS 0.63:** `R_DRAG` set high (conservative). **Fix:** derived R in the number-replacement step.
+7. **Correlated atmosphere covariance (Nov 8).** With the researched truth (13% common wiggle, τ = 100 s), a diagonal Q gave quiet O +12% / N₂ −50% and NEES 23.6: the common wiggle moves all gases together, but the filter split it per gas. Fix: P0/Q computed in code as the covariance of the true errors and increments, with the common part filling the 3×3 block (`ATMOS_COVARIANCE`). Result: NIS gauge 1.00, O 0.98, drag 1.05; NEES 1.66; quiet O −1.2% / N₂ −7.6%, storm O −5.4% / N₂ +7.4% (medians); fused density bias −3% quiet / −0.8% storm, precision 2.1% / 1.6%.
+8. **Storm composition shift = one-sided FIPEX drift (hypothesis, test pending).** By the storm window (1.6–3.3 days), the true FIPEX gain has drifted −5 to −10%, while the filter models a zero-mean random walk. It partly reads the falling signal as falling O (O −5.4%), and the gauge then pushes N₂ up (+7.4%). Smaller in the quiet window (less drift accumulated). **Test (done):** `O_DRIFT_MEAN=0` → storm O −5.4% → −1.7% (O part confirmed), but N₂ unchanged (quiet −8.5%, storm +8.6%). **Fix:** drift-rate state (Phase B).
+9. **N₂ bias is a filter-dynamics issue, not information or structure (Nov 8).** Ruled out with targeted runs: drag (no-drag run: −9.3% / +6.9%), calibration degeneracy (perfect-calibration run: −6.3% / +8.5%), lumping/structure (a no-filter calculation with perfect O + perfect gauge + the GROUP assumptions gives N₂ error −0.2% / +0.1%). So the information is there, but the filter doesn't extract it. Prime suspect: the atmosphere states are random walks while the truth is a mean-reverting wiggle on a slow storm trend; the per-gas wiggle setting moves the N₂ bias a lot (−4.4% / +14.0% without it), which points at the dynamics model. **Next:** time series of N₂ truth/prior/fused + gain states to see lag vs overshoot; candidate fix: Gauss-Markov (AR(1)) atmosphere states (Phase B). Remaining NEES (dN₂ 1.8, dO 1.3, O-gain 1.3) is consistent with this; dHe 0.2 = He uncertainty overstated (conservative).
+10. **Root cause of the composition bias found (Nov 9, scratch prototype on the pushed code).** With perfect, non-drifting sensors, both filters recover O within ±0.3% and N₂ within ~1–2% (storm included), so the filter and information content are sound. **All** composition bias comes from sensor calibration + drift (absolute gains are only anchored by daily drag, so a drifting gauge gain lands on N₂, amplified by 1/(N₂ share)). The placeholder drifts (gauge 2%/day, FIPEX 3%/day ≈ 60–90%/month) are very likely pessimistic; real vendor numbers decide composition quality. Phase A turns this into requirements (max drift, max relative calibration error).
+    - **Gauss-Markov prototype** (states: 3 slow model-gap random walks, 1 common + 3 per-group AR(1) wiggles matching the truth, 3 sensor states): with the default imperfect sensors it roughly halves run-to-run spread (quiet density P10–P90 −11…+7% → −8…−0.5%; storm N₂ −4…+20% → −1…+13%) and learns the gains to ~4–5% rms in quiet (current filter: ~8%, flat). Costs: NEES 1.6 → 3.0 (overconfident; needs tuning), slightly worse storm N₂ with perfect sensors (+1.9% vs +0.7%). A storm-time Q (oracle) barely helped. Remaining quiet offset ≈ the prior's −4%: the absolute level leans on MSIS because absolute calibration (gauge 30%, FIPEX 12%, C_D 10%) can't pin it, which is an information limit.
+6. **Daily drag makes the fused estimate step once a day.** With day-averaged drag (6%, Lowe), fused density precision went 1.1→2.0% quiet (P90 3.3%) and 1.3→1.65% storm; MAE 4.2→5.3% quiet, 4.3→5.1% storm; drag NIS 0.63→0.91 (honest now). The extra scatter is likely the once-a-day correction jump. **Fix:** RTS smoother on the ground (Phase B) spreads each correction smoothly over the day; confirm by plotting a time series.
+5. **Fused density bias spread P10–P90 ≈ −6% to +8%:** the absolute level is set by sensor gains / C_D (the scale-vs-gain degeneracy). Expected; sized properly once the real calibration numbers are in (A1, A4).
+
 ## 8. Software and simulation plan (complete, in order)
 **Rules:**
 - Everything is built as simt scenarios in this repo (`osse/`). The reference is `simt/examples/occ.py`: it is already a validated port of `fusion_osse.py` (medians inside the original's 95% confidence intervals, `validate_occ.py`), and later simt changes reproduce it bit for bit. Every restructuring step must reproduce it exactly with the same seed and settings; every deliberate model change is reported as a change, with its effect.
@@ -231,6 +313,7 @@ Its outputs feed the sensor models in Phase B.
 - **C6, the coverage grid (#5):** 200–500 km in 25 km steps × solar min/medium/max × quiet/storm × 51.6° and ~97°, with and without He. Output: the **declared altitude ranges** for density and for composition.
 - **C7, uncertainty validation (#8):** NIS/NEES, error-bar coverage, stress tests (mis-tuning, gaps, outliers).
 - **C8, the full sensitivity ranking (#6, part 2):** all-at-once global sensitivity (Morris → Sobol) confirming the Phase A ranking.
+- **C9, best-estimate run (requested by the user, Nov 8):** after the conservative sweeps, run the same simulations with realistic nominal values (vendor numbers, physically likely S_O, literature-typical truth structure), leaning slightly conservative, for quiet and storm. Report it alongside the conservative bounds: "expected" vs "worst case."
 
 ### Phase D: onboard compute (Study #11)
 - Operation and memory count; float32 vs float64 stability (Joseph-form or UD/square-root if needed).
