@@ -173,7 +173,7 @@ class OSSE(Scenario):
             s["score"].add_nis("drag", info)
         
         leak_end = (k + 1) % int(get("LEAK_WINDOW") / self.dt) == 0
-        if "leak" in use and leak_end:
+        if "leak" in use and (k == 0 or leak_end):
             z_leak = leak_true(p["gauge_gain"], p["gauge_drift"], tk, get("LEAK_NOISE"), randn(n))
             h, H = leak_predict(x)
             x, P, info = kf_update_scalar(x, P, H, z_leak, h, get("LEAK_NOISE") ** 2, return_info=True)
@@ -224,6 +224,8 @@ class OSSE(Scenario):
             "gauge_gain_est": x[:, IDX["gauge_gain"]], "gauge_gain_true": p["gauge_gain"] + p["gauge_drift"] * tk,
             "o_gain_est": x[:, IDX["o_gain"]], "o_gain_true": p["o_gain"] + p["o_drift"] * tk,
             "P": P,
+            "x": x,
+            "rho_truth": (s["n_true"] * self.mass).sum(1) * value("AMU"),
         }
 
     def score(self, s, params):

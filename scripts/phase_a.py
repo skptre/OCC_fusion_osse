@@ -1,11 +1,3 @@
-"""Phase A sweeps: turn each unknown into a requirement curve.
-
-Usage (from the repo root):
-    python scripts/phase_a.py A1              # 200 runs per config, CPU, resumable
-    python scripts/phase_a.py A3 --runs 10000 # e.g. on Colab GPU
-    python scripts/phase_a.py all
-Output: out/phase_a/<sweep>.csv (one row per config, p10/p50/p90 of every metric).
-"""
 import argparse
 import sys
 from pathlib import Path
