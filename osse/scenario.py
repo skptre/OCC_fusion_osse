@@ -216,6 +216,7 @@ class OSSE(Scenario):
             "N2_sd": (a @ P @ a).sqrt(),
             "gauge_gain_est": x[:, IDX["gauge_gain"]], "gauge_gain_true": p["gauge_gain"] + p["gauge_drift"] * tk,
             "o_gain_est": x[:, IDX["o_gain"]], "o_gain_true": p["o_gain"] + p["o_drift"] * tk,
+            "P": P,
         }
 
     def score(self, s, params):
