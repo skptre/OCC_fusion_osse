@@ -190,7 +190,7 @@ class OSSE(Scenario):
         if physics_cd:
             if k > 0:
                 s["cd_walk"] = s["cd_walk"] + get("CD_DRIFT_SD") * math.sqrt(self.dt / 86400) * randn(n)
-            s["cd_sum"] = s["cd_sum"] + get("CD_O_COEF") * torch.log(n_true[:, self.o_idx] / self.o_ref[p["phase"]])
+            s["cd_sum"] = s["cd_sum"] + get("CD_O_COEF") * torch.log(n_true[:, self.o_idx] / self.o_ref[p["phase"]]) * c
 
         n_g = n_true.clone()
         n_g[:, self.o_idx] = n_g[:, self.o_idx] * torch.exp(p["ln_so"])
@@ -221,6 +221,8 @@ class OSSE(Scenario):
             s["score"].add_nis("gauge", info, offered=up_g)
         if "o" in use:
             h, H = o_predict(n_prior[:, self.o_idx], x)
+            H[:, IDX["dz_O"]] = dz
+            h = h + x[:, IDX["dz_O"]] * dz
             x, P, info = consider_update(x, P, H, z_o, h, get("O_NOISE") ** 2, self.consider, mask=up_o, gate=gate)
             s["score"].add_nis("o", info, offered=up_o)
         day_end = (k + 1) % self.drag_steps == 0
@@ -231,8 +233,8 @@ class OSSE(Scenario):
             e = torch.exp(correction(x, basis, dz)[:, self.gidx])
             rho_now = density(n_prior, x, self.gidx, self.mass, amu, basis, dz)
             h, H = drag_predict(self.mass, self.prior_day[p["phase"], k // self.drag_steps], e, self.G, s["est_day"] + rho_now * c, m, x)
-            x, P, info = consider_update(x, P, H, z_drag, h, get("DRAG_NOISE") ** 2, self.consider, mask=s["n_day"] > 0)
-            s["score"].add_nis("drag", info)
+            x, P, info = consider_update(x, P, H, z_drag, h, get("DRAG_NOISE") ** 2, self.consider, mask=s["n_day"] > 0, gate=gate)
+            s["score"].add_nis("drag", info, offered=s["n_day"] > 0)
         
         leak_end = (k + 1) % int(get("LEAK_WINDOW") / self.dt) == 0
         if "leak" in use and (k == 0 or leak_end):

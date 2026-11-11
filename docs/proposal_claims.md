@@ -108,6 +108,35 @@ scatter of 30 s errors, MAE p50 / p90; model = forecast-driven MSIS 2.1 on the s
   the tail vanishes (gauge+drag NEES p90 5.4). Report medians AND p90; error-bar calibration must cover the tail;
   Phase 2: FIPEX gain/drift robustness (consider or robust update).
 
+## STAGE 6: the data improve the model (driver fit; scripts/driver_fit.py, out/stage6/) - Relevance evidence
+Method: every 3 h, fit 2 numbers (effective F10.7 scale, effective ap scale on the NOAA forecast drivers) so NRLMSIS
+2.1 matches the FUSED density + O, weighted by filter covariance x calibration factors (2.0 / 2.8) + 5% representation
+floor; random-walk pull block to block (choice: 0.1 / 0.7 in ln). Effective drivers capped to the physical index
+range (ap <= 400, F10.7 60-400). Truth = harsh (NRLMSISE-00 + calibrated driver errors), so the MSIS 2.1 fit cannot
+match it by construction. Rebuild self-check passed (prior + truth reconstructed = scenario tables).
+PRELIM: 3 recorded runs of 'harsh' (with leak), mean over runs. FINAL = rerun on base_harsh (no leak) + more recorded
+runs before quoting as statistics.
+- WHOLE COLUMN from one satellite at 300 km (storm window, vs column truth on the same track/times), density MAE
+  forecast-driven model -> fitted model: 250 km 23.4 -> 6.7%; 300 24.8 -> 8.0; 350 26.2 -> 10.0; 400 27.7 -> 12.2;
+  450 29.1 -> 14.4; 500 30.6 -> 16.5%. O: 18.9-28.5% -> 14.6-17.8%. => 2-3.5x better density 250-500 km.
+- FORECAST (all windows, correction held and damped exp(-lead/12 h); 12 h = calibrated driver-error correlation
+  time): density 18.3% -> 8.9 / 10.6 / 13.4 / 15.9% at 3 / 6 / 12 / 24 h lead; O 15.0 -> 11.8 / 12.0 / 13.1 / 13.3%.
+  Improves at every lead tested; benefit halves by ~12 h.
+- At the satellite: fitted model density 11.6 / 12.5 / 13.3% (model 19.0 / 25.6 / 14.6%; fused 5.4 / 6.4 / 8.3%).
+  The fused product stays the product; the fitted model is the extension away from the track.
+- CAVEATS: (1) truth is model-shaped (NRLMSISE-00 vertical structure), so the altitude transfer may be optimistic;
+  real-data check NOT DONE (option: fit to GRACE-FO fused density, score against Swarm at another altitude). (2) Recovery-window O
+  is WORSE with the fit (12.3 -> 17.5%): 2 knobs compromise density vs O; don't claim O improvement in recovery.
+  (3) First version persisted the correction undamped and blew up at 12-24 h (ap scale x20 hitting storm-time
+  forecast ap, outside MSIS range); fixed by physical caps + damping (disclose as a design lesson, not hidden).
+- TESTED, NOT CLAIMED: model-based inference of unmeasured gases gets WORSE (He 11.0 -> 11.0; O2 17.5 -> 26.5;
+  N 26.4 -> 33.3; Ar 27.2 -> 43.3; H 21.1 -> 24.6%): two driver knobs bend MSIS composition the wrong way when the
+  truth's composition structure differs. => products are measured O, N2, density only. More species = hardware
+  (Phase 2: small neutral mass spectrometer / extra species sensor; filter takes any sensor with a predict function).
+- Wording: "Our measurements correct the operational model, not just the point we fly through: fitting effective
+  drivers to the fused data cuts storm-time density error 2-3.5x from 250 to 500 km and improves 3-24 h forecasts
+  (simulation, PRELIM)."
+
 ## Honest uncertainty
 - Gate false-alarm rate matched chi-square exactly (1.0e-4 at p = 1e-4) in clean runs: evidence the innovations are
   correctly scaled.

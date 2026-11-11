@@ -42,6 +42,7 @@ CASES = {
                 "CD_SD": 0.05},
     "base_gauge_drag": {**HARSH, "USE_SENSORS": ("gauge", "drag")},   # ablation without FIPEX, no leak
 }
+RECORD = {"base_harsh": 20}  # recorded runs for the Stage 6 driver fit statistics (others: 3, for figures)
 KEEP_SERIES = ("N2_truth", "N2_prior", "N2_fused", "O_truth", "O_prior", "O_fused", "rho_truth", "N2_sd",
                "gauge_gain_est", "gauge_gain_true", "o_gain_est", "o_gain_true", "x", "P", "step")
 
@@ -84,10 +85,11 @@ def main():
             print(f"skip {name} (done)")
             continue
         s = OSSE(**CASES[name])
+        n_rec = RECORD.get(name, 3)
         r, sec = simt.run(s, args.runs, s.n_steps, seed=1, device=args.device, dtype=torch.float64,
-                          record_runs=3, record_every=4)
+                          record_runs=n_rec, record_every=4)
         keep = {k: v for k, v in r.series.items() if k in KEEP_SERIES}
-        keep["phase"] = r["phase"][:3].cpu()
+        keep["phase"] = r["phase"][:n_rec].cpu()
         keep["case"] = CASES[name]
         torch.save(keep, OUT / f"{name}_series.pt")
         show(name, summarize(name, r))
