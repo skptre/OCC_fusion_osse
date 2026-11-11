@@ -36,7 +36,18 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
   is NOT tested: He can reach ~half by number at 450 km at solar minimum (sources.md). State "dominant species at
   250-400 km" only, or compute the mass fraction from MSIS before quoting a %. He/O2 = Phase 2 hardware. Do NOT claim the
   pressure or drag-acceleration rows ("drag or pressure as an indirect route" caps Relevance at 3).
-- **Altitude range.** Declare from the C6 grid (pending). Composition 250-400 km (450 km with He caveat); density
+- **Altitude range - HARDWARE LIMIT (Nov 11, pymsis NRLMSIS 2.1, equator noon, ap 4; ram chamber T_c 300 K,
+  7.7 km/s, full accommodation, n_c = n V sqrt(2 pi m / k T_c)). MAG084 lower limit 1e-6 Pa (user/datasheet - cite).**
+  Ram-chamber pressure (Pa) at F10.7 70 / 150 / 220: 250 km 2.5e-4 / 5.3e-4 / 8.3e-4; 300 7.0e-5 / 2.0e-4 / 3.6e-4;
+  350 2.3e-5 / 8.6e-5 / 1.7e-4; 400 7.9e-6 / 3.9e-5 / 8.6e-5; 450 2.9e-6 / 1.8e-5 / 4.5e-5; 500 1.2e-6 / 8.9e-6 /
+  2.4e-5; 550 5.2e-7 / 4.5e-6 / 1.3e-5; 600 2.7e-7 / 2.3e-6 / 7.4e-6. Ram gain ~13-19x over ambient.
+  => solar minimum: 400 km has ~8x margin (dayside; nightside ~2-3x lower still OK); 450 km ~3x (marginal at night);
+  500 km AT the floor. Moderate/high activity: >= 9x margin to 500 km.
+  O + N2 mass fraction (answers audit): >= 0.93 at 250-450 km in all three activity levels; 0.88 at 500 km solar min;
+  He number fraction at solar min 8% (400) / 16% (450) / 28% (500 km).
+  => CLAIM: 250-400 km in all solar conditions; to ~500 km at moderate-to-high solar activity (gauge floor + He).
+  Caveat: single location/time; nightside and high latitude lower; check against the CAD orifice geometry.
+- **Altitude range (performance).** Declare from the no-leak grid (out/alt_grid_noleak, pending). Composition 250-400 km (450 km with He caveat); density
   higher. Outgassing breaks N2 above ~400 km at solar minimum (L8), which supports the cap.
 
 ## Performance numbers (SUPERSEDED pre-freeze history - do NOT quote; use HEADLINE / base_* sections)

@@ -142,10 +142,12 @@ def fig_timeseries():
     panels = [(ser["rho_truth"], rho_f, rho_p, "Density (kg m$^{-3}$)"),
               (ser["O_truth"], ser["O_fused"], ser["O_prior"], "Atomic O (m$^{-3}$)"),
               (ser["N2_truth"], ser["N2_fused"], ser["N2_prior"], "N$_2$ (m$^{-3}$)")]
+    nwin = max(1, int(round(s.nper / max(1, int(steps[1] - steps[0])))))  # recorded points per orbit
+    sm = lambda y: np.exp(np.convolve(np.log(y), np.ones(nwin) / nwin, mode="same"))  # orbit running mean
     for ax, (tru, fus, pri, lab) in zip(axes, panels):
-        ax.plot(hours, pri[:, run].numpy(), color=C_MODEL, lw=0.8, label="Model (forecast-driven)")
-        ax.plot(hours, tru[:, run].numpy(), color="#222", lw=0.6, label="Truth")
-        ax.plot(hours, fus[:, run].numpy(), color=C_OURS, lw=0.8, label="Fused")
+        ax.plot(hours, sm(pri[:, run].numpy()), color=C_MODEL, lw=0.9, label="Model (forecast-driven)")
+        ax.plot(hours, sm(tru[:, run].numpy()), color="#222", lw=0.8, label="Truth")
+        ax.plot(hours, sm(fus[:, run].numpy()), color=C_OURS, lw=1.0, label="Fused")
         ax.set_yscale("log")
         ax.set_ylabel(lab)
     for ax in axes:
@@ -164,7 +166,9 @@ def fig_timeseries():
 
 
 def fig_altitude():
-    files = sorted(glob.glob(str(REPO / "out" / "alt_grid" / "*km.csv")), key=lambda f: int(Path(f).stem[:-2]))
+    d = REPO / "out" / ("alt_grid_noleak" if (REPO / "out" / "alt_grid_noleak").exists() else "alt_grid")
+    print("altitude figure from", d.name)
+    files = sorted(glob.glob(str(d / "*km.csv")), key=lambda f: int(Path(f).stem[:-2]))
     if not files:
         return print("skip altitude: no alt_grid csv")
     alts = [int(Path(f).stem[:-2]) for f in files]
@@ -183,12 +187,14 @@ def fig_altitude():
 
 
 def fig_requirements():
-    rows = [r for f in sorted(glob.glob(str(REPO / "out" / "phase_a3" / "A*.csv"))) for r in csv.DictReader(open(f))]
+    d = REPO / "out" / ("phase_a_noleak" if (REPO / "out" / "phase_a_noleak").exists() else "phase_a3")
+    print("requirements figure from", d.name)
+    rows = [r for f in sorted(glob.glob(str(d / "A*.csv"))) for r in csv.DictReader(open(f))]
     key = "storm_rho_fused_mae_p50"
     rows = [r for r in rows if r.get(key) not in ("", None)]
     if not rows:
-        return print("skip requirements: no phase_a3 csv")
-    ignore = ("TRUTH_KIND", "TRUTH_MSIS_VERSION")
+        return print("skip requirements: no phase_a csv")
+    ignore = ("TRUTH_KIND", "TRUTH_MSIS_VERSION", "USE_SENSORS")
     cfgs = [{k: r[k] for k in r if k.isupper() and k not in ignore and r[k] not in ("", None)} for r in rows]
     base = next((r for r, c in zip(rows, cfgs) if not c), rows[0])
     b = float(base[key])
