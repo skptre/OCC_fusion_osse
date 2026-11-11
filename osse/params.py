@@ -169,6 +169,14 @@ reg("CD_O_COEF", -0.04, "assumption",
     "d ln C_D / d ln n_O from O-adsorption accommodation: s_alpha = d lnC_D/d alpha = -1.2 (Moe & Bowman 2005 sphere "
     "tables) x (alpha_s - alpha_c) 0.4 (assumed) x Langmuir d theta/d ln p = theta(1-theta) 0.09 at theta0 = 0.9 "
     "(assumed) = -0.043; a factor-2 O drop gives +3% C_D, matching the 2-5% storm estimate (W3)")
+reg("N2_LT_HARMONICS", 2, "choice",
+    "local-time harmonics in the N2 model gap: 2 = diurnal + semidiurnal (4 states), 0 = off. Evidence: NRLMSISE-00 vs "
+    "MSIS 2.1 N2 differ by an offset plus a semidiurnal local-time term of amplitude 0.10 (L6, Nov 10); tides enter "
+    "MSIS itself as local-time harmonics (Emmert et al. 2021)")
+reg("N2_LT_SD", 0.07, "assumption",
+    "prior sd of each harmonic coefficient (ln units): the 0.10 amplitude seen between models ~ sd*sqrt(2)")
+reg("N2_LT_Q", 0.05, "assumption",
+    "random-walk drift of each harmonic coefficient per day (ln units): lets the pattern change with activity over days")
 
 
 # FIPEX (atomic O)

@@ -3,9 +3,9 @@ import numpy as np
 import torch
 
 from simt import Scenario, kf_predict
-from osse.atmosphere import build_tables
+from osse.atmosphere import build_tables, orbit
 from osse.params import value
-from osse.filter import IDX, N_STATES, GAP, WC, WG, correction, density, CONSIDER, consider_update
+from osse.filter import IDX, N_STATES, GAP, WC, WG, HARM, correction, density, CONSIDER, consider_update, lt_basis
 from osse.sensors import drag_predict, drag_true, gauge_predict, gauge_true, o_predict, o_true, leak_true, leak_predict
 from osse.metrics import Scorer
 
@@ -58,6 +58,10 @@ class OSSE(Scenario):
         self.truth = f(self.truth_np)
         self.prior = f(self.prior_np)
         self.prior_day = f(day_means)
+        t = np.arange(self.n_steps) * self.dt
+        lt = np.stack([(t / 3600 + orbit(t, self.alt_km, 2 * math.pi * j / self.n_phases)[1] / 15) % 24 for j in range(self.n_phases)])
+        self.basis_t = f(lt_basis(lt))
+        self.harm_on = get("N2_LT_HARMONICS") > 0
         self.o_ref = f(self.truth_np[:, :, self.o_idx].mean(1))
         self.mass = f(value("MASS"))
         w = np.sqrt(np.array(value("MASS")) / value("MASS")[self.n2_idx]) if get("GAUGE_MODEL") == "ram" else 1.0
@@ -78,6 +82,8 @@ class OSSE(Scenario):
         P0[WG, WG] = np.eye(3) * species_var
         P0[gg, gg], P0[og, og], P0[cd, cd] = get("GAUGE_GAIN_SD") ** 2, get("O_GAIN_SD") ** 2, get("CD_SD") ** 2
         P0[IDX["ln_so"], IDX["ln_so"]] = self.so_sd ** 2
+        h_sd = get("N2_LT_SD") if self.harm_on else 1e-6
+        P0[HARM, HARM] = np.eye(4) * h_sd ** 2
 
         Q = np.zeros((N_STATES, N_STATES))
         Q[GAP, GAP] = np.diag(np.array(get("Q_MSIS_SD")) ** 2)
@@ -86,6 +92,7 @@ class OSSE(Scenario):
         Q[gg, gg] = get("GAUGE_DRIFT_SD") ** 2 * day_frac2
         Q[og, og] = o_drift_rms ** 2 * day_frac2
         Q[cd, cd] = get("CD_DRIFT_SD") ** 2 * day_frac2
+        Q[HARM, HARM] = np.eye(4) * get("N2_LT_Q") ** 2 * day_frac2
 
         F = np.eye(N_STATES)
         F[WC, WC] = self.a_common
@@ -151,6 +158,7 @@ class OSSE(Scenario):
         n_true = self.truth[p["phase"], k] * torch.exp(s["common"][:, None] + s["species"])
         s["n_true"] = n_true
         n_prior = self.prior[p["phase"], k]
+        basis = self.basis_t[p["phase"], k] if self.harm_on else None
         rho_true = (n_true * self.mass).sum(1) * amu
         rho_prior = (n_prior * self.mass).sum(1) * amu
 
@@ -181,8 +189,8 @@ class OSSE(Scenario):
 
         x, P = kf_predict(x, P, self.F, self.Qd)
         if "gauge" in use:
-            e = torch.exp(correction(x)[:, self.gidx])
-            h, H = gauge_predict(n_prior, e, self.r_filt_t, self.G, x, self.o_idx)
+            e = torch.exp(correction(x, basis)[:, self.gidx])
+            h, H = gauge_predict(n_prior, e, self.r_filt_t, self.G, x, self.o_idx, basis)
             x, P, info = consider_update(x, P, H, z_gauge, h, get("GAUGE_NOISE") ** 2, self.consider, mask=s["up_g"], gate=gate)
             s["score"].add_nis("gauge", info, offered=s["up_g"])
             s["score"].add_nis("gauge", info)
@@ -196,8 +204,8 @@ class OSSE(Scenario):
             m = self.drag_steps
             cd_true = p["cd_bias"] + (s["cd_walk"] + s["cd_sum"] / m if physics_cd else 0.0)
             z_drag = drag_true(s["truth_day"] / m, cd_true, get("DRAG_NOISE"), randn(n))
-            e = torch.exp(correction(x)[:, self.gidx])
-            rho_now = density(n_prior, x, self.gidx, self.mass, amu)
+            e = torch.exp(correction(x, basis)[:, self.gidx])
+            rho_now = density(n_prior, x, self.gidx, self.mass, amu, basis)
             h, H = drag_predict(self.mass, self.prior_day[p["phase"], k // m], e, self.G,
                                 s["est_day"] + rho_now, m, x)
             x, P, info = consider_update(x, P, H, z_drag, h, get("DRAG_NOISE") ** 2, self.consider)
@@ -210,7 +218,7 @@ class OSSE(Scenario):
             x, P, info = consider_update(x, P, H, z_leak, h, get("LEAK_NOISE") ** 2, self.consider)
             s["score"].add_nis("leak", info)
 
-        rho_est = density(n_prior, x, self.gidx, self.mass, amu)
+        rho_est = density(n_prior, x, self.gidx, self.mass, amu, basis)
         s["est_day"] = s["est_day"] + rho_est
         if day_end:
             s["truth_day"] = torch.zeros_like(rho_true)
@@ -221,7 +229,7 @@ class OSSE(Scenario):
         w = s["score"].window(tk / 3600)
         if w is not None:
             o, n2 = self.o_idx, self.n2_idx
-            e = torch.exp(correction(x)[:, self.gidx])
+            e = torch.exp(correction(x, basis)[:, self.gidx])
             est = {"rho_prior": rho_prior, "rho_gauge": rho_gauge, "rho_fused": rho_est,
                    "O_prior": n_prior[:, o], "O_fused": n_prior[:, o] * e[:, o],
                    "N2_prior": n_prior[:, n2], "N2_fused": n_prior[:, n2] * e[:, n2]}
@@ -239,21 +247,29 @@ class OSSE(Scenario):
                 p["o_gain"] + p["o_drift"] * tk,
                 p["cd_bias"] + ((s["cd_walk"] + get("CD_O_COEF") * torch.log(n_true[:, self.o_idx] / self.o_ref[p["phase"]])) if physics_cd else 0.0), 
                 torch.full_like(p["cd_bias"], self.so_true) + p["ln_so"]], dim=1)
-            s["score"].add_nees(x, x_true, P)
+            keep = list(range(IDX["cd_bias"] + 1)) + [IDX["ln_so"]]
+            T = torch.zeros(n, len(keep), N_STATES, device=dev, dtype=dt)
+            T[:, torch.arange(len(keep)), torch.tensor(keep)] = 1.0
+            if basis is not None:
+                T[:, IDX["gap_N2"], HARM] = basis
+            s["score"].add_nees((T @ x.unsqueeze(-1)).squeeze(-1), x_true, T @ P @ T.mT)
         return s
 
     def observe(self, s, k, p):
         o, n2 = self.o_idx, self.n2_idx
         x, P = s["x"], s["P"]
         n_prior = self.prior[p["phase"], k]
-        e = torch.exp(correction(x)[:, self.gidx])
+        basis = self.basis_t[p["phase"], k] if self.harm_on else None
+        e = torch.exp(correction(x, basis)[:, self.gidx])
         tk = k * self.dt
-        a = torch.zeros(N_STATES, device=x.device, dtype=x.dtype)
-        a[[IDX["gap_N2"], WC, IDX["w_N2"]]] = 1.0
+        a = torch.zeros_like(x)
+        a[:, [IDX["gap_N2"], WC, IDX["w_N2"]]] = 1.0
+        if basis is not None:
+            a[:, HARM] = basis
         return {
             "N2_truth": s["n_true"][:, n2], "N2_prior": n_prior[:, n2], "N2_fused": n_prior[:, n2] * e[:, n2],
             "O_truth": s["n_true"][:, o], "O_prior": n_prior[:, o], "O_fused": n_prior[:, o] * e[:, o],
-            "N2_sd": (a @ P @ a).sqrt(),
+            "N2_sd": torch.einsum("bi,bij,bj->b", a, P, a).sqrt(),
             "gauge_gain_est": x[:, IDX["gauge_gain"]], "gauge_gain_true": p["gauge_gain"] + p["gauge_drift"] * tk,
             "o_gain_est": x[:, IDX["o_gain"]], "o_gain_true": p["o_gain"] + p["o_drift"] * tk,
             "P": P,

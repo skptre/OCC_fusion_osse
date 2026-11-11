@@ -7,7 +7,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from osse.filter import IDX, WC, correction, group_H
+from osse.filter import IDX, WC, HARM, correction, group_H
 from osse.params import value
 from osse.scenario import OSSE
 from osse.smoother import rts
@@ -19,7 +19,8 @@ E = IDX["ln_so"]
 
 def products(x, s, phase):
     K, N, _ = x.shape
-    e = torch.exp(correction(x.reshape(K * N, -1))[:, s.gidx]).reshape(K, N, -1)
+    b = s.basis_t[phase].transpose(0, 1).reshape(K * N, -1) if s.harm_on else None
+    e = torch.exp(correction(x.reshape(K * N, -1), b)[:, s.gidx]).reshape(K, N, -1)
     n = s.prior[phase].transpose(0, 1) * e
     return {"rho": (n * s.mass).sum(-1) * value("AMU"), "O": n[..., s.o_idx], "N2": n[..., s.n2_idx]}
 
@@ -33,13 +34,16 @@ def mae(est, truth, hours, w):
 def log_sd(x, P, s, phase):
     K, N, ns = x.shape
     xf = x.reshape(K * N, ns)
-    n = s.prior[phase].transpose(0, 1).reshape(K * N, -1) * torch.exp(correction(xf)[:, s.gidx])
-    a_rho, _ = group_H(n * s.mass, s.G, IDX["cd_bias"])
+    b = s.basis_t[phase].transpose(0, 1).reshape(K * N, -1) if s.harm_on else None
+    n = s.prior[phase].transpose(0, 1).reshape(K * N, -1) * torch.exp(correction(xf, b)[:, s.gidx])
+    a_rho, _ = group_H(n * s.mass, s.G, IDX["cd_bias"], b)
     a_rho[:, IDX["cd_bias"]] = 0.0
     grads = {"rho": a_rho[:, :ns]}
     for g in ("O", "N2"):
         a = torch.zeros_like(xf)
         a[:, [IDX[f"gap_{g}"], WC, IDX[f"w_{g}"]]] = 1.0
+        if g == "N2" and b is not None:
+            a[:, HARM] = b
         grads[g] = a
     Pf = P.reshape(K * N, ns, ns)
     return {q: torch.einsum("bi,bij,bj->b", a, Pf, a).clamp(min=0).sqrt().reshape(K, N) for q, a in grads.items()}

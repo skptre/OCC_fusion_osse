@@ -3,7 +3,7 @@ import torch
 from simt import RunningStats
 
 from osse.params import value
-from osse.filter import STATES
+from osse.filter import NEES_STATES
 
 WINDOWS = ("quiet", "storm", "recovery")
 ESTIMATES = ("rho_prior", "rho_gauge", "rho_fused", "O_prior", "O_fused", "N2_prior", "N2_fused")
@@ -15,8 +15,8 @@ class Scorer:
         self.errors = {(w,q): RunningStats(n, device, dtype) for w in WINDOWS for q in ESTIMATES}
         self.nis = {s: RunningStats(n, device, dtype) for s in SENSORS}
         self.nees = RunningStats(n, device, dtype)
-        self.nees_state = {s: RunningStats(n, device, dtype) for s in STATES}
-        self.z_state = {s: RunningStats(n, device, dtype) for s in STATES}
+        self.nees_state = {s: RunningStats(n, device, dtype) for s in NEES_STATES}
+        self.z_state = {s: RunningStats(n, device, dtype) for s in NEES_STATES}
         self.rej = {s: RunningStats(n, device, dtype) for s in SENSORS}
     
     def window(self, hours):
@@ -42,7 +42,7 @@ class Scorer:
         self.nees.add(nees)
         err = x - x_true
         sd = torch.diagonal(P, dim1=1, dim2=2).sqrt()
-        for i, s in enumerate(STATES):
+        for i, s in enumerate(NEES_STATES):
             z = err[:, i] / sd[:, i]
             self.z_state[s].add(z)
             self.nees_state[s].add(z * z)
@@ -54,7 +54,7 @@ class Scorer:
         for s, stats in self.nis.items():
             out[f"rej_{s}"] = self.rej[s].summary("x")["x_bias"]
         out["nees"] = self.nees.summary("x")["x_bias"]
-        for s in STATES:
+        for s in NEES_STATES:
             out[f"nees_{s}"] = self.nees_state[s].summary("x")["x_bias"]
             out[f"z_{s}"] = self.z_state[s].summary("x")["x_bias"]
         return out
