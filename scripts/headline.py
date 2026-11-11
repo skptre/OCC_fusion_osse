@@ -19,6 +19,7 @@ from osse.scenario import OSSE
 
 OUT = Path(__file__).resolve().parents[1] / "out" / "headline"
 HARSH = {"TRUTH_KIND": "perturbed", "TRUTH_MSIS_VERSION": 0}
+THREE = ("gauge", "o", "drag")
 CASES = {
     "harsh": HARSH,                                                   # THE headline truth
     "driver_error": {"TRUTH_KIND": "perturbed"},                      # MSIS 2.1 + calibrated driver errors
@@ -31,6 +32,15 @@ CASES = {
     "harsh_dual_gps": {**HARSH, "DRAG_NOISE": 0.05},
     "harsh_drag_only": {**HARSH, "USE_SENSORS": ("drag",)},           # ablation: host GPS drag alone
     "harsh_gauge_drag": {**HARSH, "USE_SENSORS": ("gauge", "drag", "leak")},  # ablation: no FIPEX
+    # BASELINE hardware (Nov 11 decision): current CAD, no calibrated leak (leak = Phase 2 enhancement);
+    # ground S_O calibration (register default 5%, estimated in flight) kept.
+    "base_harsh": {**HARSH, "USE_SENSORS": THREE},                     # THE baseline headline
+    "base_driver_error": {"TRUTH_KIND": "perturbed", "USE_SENSORS": THREE},
+    "base_msise00": {"TRUTH_MSIS_VERSION": 0, "USE_SENSORS": THREE},
+    "base_twin": {"TRUTH_MSIS_VERSION": 2.1, "USE_SENSORS": THREE},
+    "base_c9": {**HARSH, "USE_SENSORS": THREE, "O_DRIFT_MEAN": 0.01, "O_DRIFT_SD": 0.0033, "GAUGE_DRIFT_SD": 0.005,
+                "CD_SD": 0.05},
+    "base_gauge_drag": {**HARSH, "USE_SENSORS": ("gauge", "drag")},   # ablation without FIPEX, no leak
 }
 KEEP_SERIES = ("N2_truth", "N2_prior", "N2_fused", "O_truth", "O_prior", "O_fused", "rho_truth", "N2_sd",
                "gauge_gain_est", "gauge_gain_true", "o_gain_est", "o_gain_true", "x", "P", "step")

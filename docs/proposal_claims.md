@@ -68,6 +68,46 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
 - DE-2 dev rerun on the frozen setup: density 23% / 48% -> 5.0% / 3.8%; N2 71% / 140% -> 21% / 44%; O 12% / 32% ->
   16% / 17%.
 
+## HARDWARE BASELINE DECISION (Nov 11, user): NO calibrated leak in the baseline
+- Baseline = current CAD (gauge + FIPEX + host GPS drag) + ground S_O (or S_O/f same-beam) calibration to 5%.
+  Headline numbers = the base_* cases (headline.py). The leak cases below become the "Phase 2 enhancement".
+- Wording: "A calibrated-leak gauge calibrator (Phase 2 trade study; calibration-gas heritage from flight mass
+  spectrometers: MAVEN NGIMS, Mahaffy et al. 2015; LADEE NMS) improves density from ~X% to ~3-5% and makes N2 beat
+  the model in every window." Do NOT present the leak as baseline hardware (novel for a cold cathode gauge; no flight
+  precedent found).
+- Hardware the leak would need (rough estimates, verify with vendors/mech): Ar reservoir (few cm3, ~1 bar; ~3.6 mg/yr),
+  calibrated leak (~1e-5 mbar L/s), normally-closed latching microvalve, port into the gauge chamber (CAD change),
+  ~50-150 g, power only for brief pulses; small pressure vessel rules; fail-closed. Leak calibrates the chamber
+  response, not the inlet (K6).
+- Pre-freeze 100-run estimate of the baseline (harsh): density 6.5 / 7.4 / 7.7%; recovery N2 ~ model (~19%).
+  -> replace with base_harsh (2000 runs) when done.
+
+## INFICON numbers (expected soon; user Nov 11: "most if not all", do not assume all)
+- When they arrive: put each into params.py with kind "vendor" (gauge noise, drift, gain accuracy meaning, gas
+  factors, ignition, temperature coefficient, nonlinearity), read the final Phase A curves at those values, and do
+  ONE confirming headline run. Phase A sweeps already bracket them, so no re-tuning; frozen filter unchanged.
+  Phase A first pass: gauge noise 0.5-5% and gas factors barely matter; gauge drift <= ~2%/day fine.
+
+## HEADLINE RESULTS (freeze-v1, 2000 runs, Colab Nov 11; out/headline/*.csv) - quotable
+Harsh truth (NRLMSISE-00 + calibrated driver errors), real-time filter; accuracy = median bias, precision = median 1-sigma
+scatter of 30 s errors, MAE p50 / p90; model = forecast-driven MSIS 2.1 on the same runs. Quiet / storm / recovery:
+- DENSITY: accuracy +0.1 / +1.1 / +1.8%; precision 1.7 / 2.3 / 2.6%; MAE 3.2 / 3.6 / 4.7% (p90 7.4 / 8.0 / 11.4%);
+  model 15.3 / 22.9 / 15.1%. Meets 20% / 10% / 30 s with margin even at p90; 4-6x better than the model.
+- O: MAE 5.6 / 9.8 / 10.6% (p90 12.6 / 28.5 / 29.7%); model 14.1 / 17.2 / 14.0% (1.4-2.5x better at median).
+- N2: MAE 10.3 / 15.5 / 14.4% (p90 21 / 47 / 28%); model 20.5 / 29.6 / 19.5% (~2x better at median).
+- Robustness (density MAE): driver-error truth 3.1 / 3.3 / 3.7%; NRLMSISE-00 3.2 / 3.3 / 4.4%; twin 3.0 / 2.7 / 3.0%.
+- C9 best estimate (FIPEX drift 1%/day, gauge 0.5%/day, C_D 5%): density 2.7 / 2.7 / 3.7%; N2 10.3 / 11.0 / 11.7%.
+- Uncalibrated (S_O bracket 16%, no leak): density 6.1 / 8.6 / 10.8%; N2 recovery 29% (WORSE than model 19.5%).
+- Dual-frequency GPS: no gain over single-frequency (same as Phase A).
+- Sensor ablation (harsh): drag alone density 13.6 / 17.0 / 15.3% (~model level); gauge + drag + leak (no FIPEX)
+  density 3.5 / 3.6 / 3.7%, O 8.9 / 14.3 / 11.0%, N2 16.5 / 14.4 / 14.8%; full suite O 5.6 / 9.8 / 10.6%,
+  N2 10.3 / 15.5 / 14.4%. => the calibrated gauge delivers density; FIPEX delivers composition (quiet O 8.9 -> 5.6%,
+  quiet N2 16.5 -> 10.3%).
+- HONEST TAILS: in the worst 10% of runs, storm/recovery O (28-30%) is worse than the model's median. NEES tail
+  (p90 98) is driven by gap_He (p90 91; He is not a reported product) and FIPEX gain o_gain (p90 24); without FIPEX
+  the tail vanishes (gauge+drag NEES p90 5.4). Report medians AND p90; error-bar calibration must cover the tail;
+  Phase 2: FIPEX gain/drift robustness (consider or robust update).
+
 ## Honest uncertainty
 - Gate false-alarm rate matched chi-square exactly (1.0e-4 at p = 1e-4) in clean runs: evidence the innovations are
   correctly scaled.
@@ -114,6 +154,20 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
   1969); recombination products; gauge nonlinearity and mode jumps; ignition delay (60 s at 1e-8 mbar); discharge
   pumping; leak path; same-beam relative only; wall temperature (1.7%/10 K) and pointing (1.5%/10 deg); background;
   no MAG084 drift data; FIPEX drift and n^0.35 response (Eberhart et al. 2019).
+
+## In-flight drift/sensitivity tracking (answer to "what about drift / S_O / 1 year")
+- Every headline number already includes, in the truth: FIPEX drift 3%/day one-sided, gauge drift 2%/day, gains
+  +-30% unknown, S_O drawn per run (5% calibrated; 16% bracket in the uncalibrated case), C_D bias + drift + O-physics,
+  per-orbit drag noise 15%, sensor outages, harsh model error. The filter tracks gauge gain (re-anchored daily by the
+  leak), FIPEX gain (cross-checked vs gauge each 30 s and drag each orbit), S_O and C_D as states.
+- Wording (draft): "Sensor gains are tracked in flight: the gauge is re-anchored daily by a calibrated leak and FIPEX
+  is cross-checked against the gauge and drag every orbit. Gain errors reach steady state within ~2 days under 3%/day
+  drift (self-calibration figure). Long-term validity rests on the leak; a 1-year simulation is planned (Phase 2)."
+  -> CHECK the steady-state claim against the recorded headline runs before using it.
+- NOT covered (state as limits): 1-year accumulation not simulated; S_O time variation (conditioning, Cross et al.
+  1995); FIPEX n^0.35 response; gauge nonlinearity/jumps beyond the gate; wall temperature / pointing (C7 pending).
+- Wording rule (user, Nov 11): every sentence backed by a test, a citation or a labelled assumption; nothing implied
+  beyond what was run.
 
 ## Caveats that must appear
 - All OSSE numbers: 300 km, 51.6 deg, one storm (May 2024), 5 days, high solar activity.
