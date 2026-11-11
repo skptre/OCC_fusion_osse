@@ -56,6 +56,18 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
   scarcity of composition data is the gap this suite fills."
 - Rejected in dev: N2 prior 35% alone (no change: information, not prior, was the limit).
 
+## FROZEN ARCHITECTURE (freeze-v1, Nov 11) - every post-freeze number runs on this
+- Register defaults: S_O estimated, ground-calibrated to 5% (requirement; uncalibrated bracket SO_BRACKET_SD 0.16);
+  daily argon leak; ram gauge; per-orbit single-frequency drag 15%; gaps on; NIS gate 15.1; gap prior 20%; Q x4
+  (re-checked on both truths: x8 more honest but quiet N2 ties the model); altitude slopes on; N2 harmonics off;
+  truth C_D physics. Real-time filter product (the RTS smoother is NOT in the architecture: it degrades estimate-mode
+  results; later work).
+- Pre-freeze harsh-truth numbers (Q x4, 100 runs): density 3.2 / 3.2 / 4.8%; O 5.8 / 10.3%; N2 10.0 / 16.1 / 16.6%.
+- Error-bar calibration factors (filter z, harsh truth, 30 runs): density x2.0, O x2.8, N2 x3.4 (worst window);
+  density honest in quiet (z 0.96, 68% inside 1 sigma). Verify on held-out DE-2 + GRACE-FO.
+- DE-2 dev rerun on the frozen setup: density 23% / 48% -> 5.0% / 3.8%; N2 71% / 140% -> 21% / 44%; O 12% / 32% ->
+  16% / 17%.
+
 ## Honest uncertainty
 - Gate false-alarm rate matched chi-square exactly (1.0e-4 at p = 1e-4) in clean runs: evidence the innovations are
   correctly scaled.

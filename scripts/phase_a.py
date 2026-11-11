@@ -10,9 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from osse.params import value
 from osse.scenario import OSSE
 
-OUT = Path("out/phase_a2")
+REPO = Path(__file__).resolve().parents[1]
+OUT = REPO / "out" / "phase_a3"
 SPECIES = value("SPECIES")
-BASE = {"TRUTH_MSIS_VERSION": 0}
+# final Phase A (freeze-v1): register defaults = frozen architecture; truth = harsh (NRLMSISE-00 + driver errors)
+BASE = {"TRUTH_KIND": "perturbed", "TRUTH_MSIS_VERSION": 0}
+BRACKET = value("SO_BRACKET_SD")
 
 
 def r_true(**scale):
@@ -36,24 +39,26 @@ def drift_pairs(means):
 LEAK = ("gauge", "o", "drag", "leak")
 
 SWEEPS = {
+    # the baseline runs once (A1); the other sweeps compare against it
     "A1": ("drag: per-orbit noise (dual 0.05 .. poor 0.25), C_D prior (known host 0.05 .. unknown 0.25), daily fallback",
-           [BASE] + each("DRAG_NOISE", [0.05, 0.10, 0.25]) + each("CD_SD", [0.05, 0.15, 0.25])
+           [BASE] + each("DRAG_NOISE", [0.05, 0.25]) + each("CD_SD", [0.05, 0.15, 0.25])
            + [{**BASE, "DRAG_WINDOW": 86400.0, "DRAG_NOISE": 0.06}]),
-    "A2": ("S_O: filter knows (calibration quality, truth spread = filter sd) and filter fooled (truth at bracket ends)",
-           [BASE] + [{**BASE, "SO_SD": v, "SO_TRUTH_SD": v} for v in (0.05, 0.10, 0.25)]
-           + [{**BASE, "SO_TRUTH_SD": 0.0, "SO_TRUTH_OFFSET": v} for v in (-0.11, 0.24)]),
+    "A2": ("S_O: ground calibration quality (filter knows), uncalibrated (consider, bracket), filter fooled",
+           [{**BASE, "SO_SD": v, "SO_TRUTH_SD": v} for v in (0.03, 0.10)]
+           + [{**BASE, "SO_MODE": "consider", "SO_SD": BRACKET, "SO_TRUTH_SD": BRACKET},
+              {**BASE, "SO_TRUTH_SD": 0.10}]),
     "A3": ("FIPEX: one-sided drift (ln/day), gain prior (unit-to-unit), noise, outages",
-           [BASE] + drift_pairs([0.0, 0.003, 0.01, 0.06]) + each("O_GAIN_SD", [0.05, 0.12, 0.40])
+           drift_pairs([0.0, 0.01, 0.06]) + each("O_GAIN_SD", [0.05, 0.12])
            + each("O_NOISE", [0.02, 0.10]) + [{**BASE, "O_GAP_EVERY": 21600.0, "O_GAP_LEN": 3600.0}]),
-    "A4": ("CCG: drift, noise (0.05 = datasheet repeatability), gain prior, outages",
-           [BASE] + each("GAUGE_DRIFT_SD", [0.001, 0.005, 0.05]) + each("GAUGE_NOISE", [0.005, 0.03, 0.05])
-           + each("GAUGE_GAIN_SD", [0.05, 0.10]) + [{**BASE, "GAUGE_GAP_EVERY": 21600.0, "GAUGE_GAP_LEN": 1800.0}]),
-    "A5": ("calibration: both gains tightened (ground), and the daily leak at several accuracies",
-           [BASE] + [{**BASE, "GAUGE_GAIN_SD": g, "O_GAIN_SD": g} for g in (0.10, 0.05, 0.02)]
-           + [{**BASE, "USE_SENSORS": LEAK, "LEAK_NOISE": v} for v in (0.03, 0.05, 0.10)]),
-    "A6": ("gas factors, filter fooled: truth He/N/O2/all-non-O off by their source spread",
-           [BASE] + [{**BASE, "R_TRUE": r_true(**{g: f})} for g, f in
-                     (("He", 1.25), ("He", 0.75), ("N", 1.10), ("N", 0.90), ("O2", 1.10), ("non_O", 1.05), ("non_O", 0.95))]),
+    "A4": ("CCG: drift, noise (0.05 = datasheet repeatability), outages",
+           each("GAUGE_DRIFT_SD", [0.005, 0.05]) + each("GAUGE_NOISE", [0.005, 0.05])
+           + [{**BASE, "GAUGE_GAP_EVERY": 21600.0, "GAUGE_GAP_LEN": 1800.0}]),
+    "A5": ("calibration: leak accuracy, no leak, both gains ground-calibrated",
+           each("LEAK_NOISE", [0.03, 0.10]) + [{**BASE, "USE_SENSORS": ("gauge", "o", "drag")}]
+           + [{**BASE, "GAUGE_GAIN_SD": 0.05, "O_GAIN_SD": 0.05}]),
+    "A6": ("gas factors, filter fooled: truth He/N/all-non-O off by their source spread",
+           [{**BASE, "R_TRUE": r_true(**{g: f})} for g, f in
+            (("He", 1.25), ("He", 0.75), ("N", 1.10), ("N", 0.90), ("non_O", 1.05), ("non_O", 0.95))]),
 }
 
 SHOW = [f"{w}_{q}" for w in ("quiet", "storm", "recovery") for q in
