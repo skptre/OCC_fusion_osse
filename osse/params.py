@@ -163,8 +163,10 @@ reg("GAUGE_MODEL", "ram", "choice",
     "ram = gauge sees chamber density from the ram flux balance n_c,i = n_i V cos(theta) sqrt(2 pi m_i / (k T_c)) "
     "(free-molecular orifice, speed ratio s >> 1; thermal terms ~exp(-s^2), <1% even for H), so species weights become "
     "R_i * sqrt(m_i / m_N2); V, cos(theta), T_c common to all gases (known, folded into gain); static = R_i only (old)")
-reg("CD_TRUTH_MODEL", "constant", "choice",
-    "physics = true C_D = bias + O-adsorption term + slow random walk; constant = bias only (old)")
+reg("CD_TRUTH_MODEL", "physics", "choice",
+    "physics = true C_D = bias + O-adsorption term + slow random walk; constant = bias only (old). Physics is the "
+    "realistic truth (W3); the filter keeps C_D as bias + random walk: with single-frequency per-orbit drag the "
+    "O-dependence changed density by <1 pt (tested Nov 11), so it is not modelled in the filter (dual-frequency upgrade)")
 reg("CD_O_COEF", -0.04, "assumption",
     "d ln C_D / d ln n_O from O-adsorption accommodation: s_alpha = d lnC_D/d alpha = -1.2 (Moe & Bowman 2005 sphere "
     "tables) x (alpha_s - alpha_c) 0.4 (assumed) x Langmuir d theta/d ln p = theta(1-theta) 0.09 at theta0 = 0.9 "
@@ -189,7 +191,8 @@ reg("O_DRIFT_SD", 0.01, "assumption", PH + "; its spread, 1-sigma (ln units per 
 reg("O_NOISE", 0.05, "assumption", PH + "; noise per 30 s reading, 1-sigma (ln units)", becomes="vendor")
 
 
-# filter: state = [dO, dN2, dHe, gauge gain, O gain, C_D bias]
+# filter: 18 states (osse/filter.py STATES): per-gas model gaps, common + per-gas wiggles, gauge gain, FIPEX gain,
+# C_D bias, N2 local-time harmonics (off), per-gas altitude slopes, S_O
 reg("GROUP", (1, 1, 0, 2, 2, 1, 0), "choice",
     "which correction state scales each species (SPECIES order): O,N->O; N2,O2,Ar->N2; He,H->He; "
     "lumps minor species with the major one they track")
@@ -206,7 +209,9 @@ reg("FILTER_STRUCTURE", "gauss-markov", "choice",
     "lets the filter separate persistent sensor gains from atmosphere; prototype: run-to-run spread ~halved")
 reg("CD_DRIFT_SD", 0.01, "assumption",
     "slow C_D change from attitude and surface state over days (ln units per day)", becomes="sweep")
-reg("USE_SENSORS", ("gauge", "o", "drag"), "choice", "full suite; subsets run as comparisons")
+reg("USE_SENSORS", ("gauge", "o", "drag", "leak"), "choice",
+    "full suite incl. the daily in-flight argon-leak gauge calibration (design element: without leak + S_O calibration, "
+    "recovery N2 is worse than the model, Nov 11); subsets run as comparisons")
 reg("DRAG_WINDOW", 5430.0, "choice",
     "one GPS drag density per orbit (181 x 30 s at 300 km); W3 research: per-orbit feasible at 250-350 km "
     "(Ray et al. 2023 AMOS; van den IJssel et al. 2020 ASR 65:1758); daily 86400 = fallback (Lowe & D'Amico 2026)")
@@ -220,21 +225,27 @@ reg("LEAK_NOISE", 0.05, "assumption",
     "in-flight calibrated argon leak: absolute gauge-gain reading error, 1-sigma (ln units); L9 budget 3-6%, "
     "leak supplier spec not yet confirmed", becomes="vendor")
 reg("LEAK_WINDOW", 86400.0, "choice", "one leak calibration pulse per UTC day (s)")
-reg("SO_SD", 0.16, "sourced",
-    "1-sigma of ln S_O around 0.56: bracket 0.51 (O/N2 ionization cross-section ratio at 70 eV; Laher & Gilmore 1990 "
-    "JPCRD 19:277 + NIST BEB) to 0.71 (full O->O2 recombination in the chamber, S_O2/sqrt2; Newton & Horowitz 1969 "
-    "NASA TN D-5447 App. A); never measured for MAG084; gettering can push it lower (Pelz & Newton 1967) (ln units)")
-reg("SO_MODE", "consider", "choice",
-    "consider = S_O uncertainty carried but never estimated (Schmidt filter); estimate = in-flight S_O estimation; "
-    "off = SO_SD ignored (old behaviour)")
-reg("SO_TRUTH_SD", 0.16, "sweep",
-    "spread of the TRUE ln S_O across runs (0 = truth uses R_TRUE exactly); set equal to SO_SD for the fair "
-    "'filter fooled' test (ln units)")
+reg("SO_BRACKET_SD", 0.16, "sourced",
+    "1-sigma of ln S_O WITHOUT ground calibration, around 0.56: bracket 0.51 (O/N2 ionization cross-section ratio at "
+    "70 eV; Laher & Gilmore 1990 JPCRD 19:277 + NIST BEB) to 0.71 (full O->O2 recombination in the chamber, "
+    "S_O2/sqrt2; Newton & Horowitz 1969 NASA TN D-5447 App. A); never measured for MAG084; gettering can push it lower "
+    "(Pelz & Newton 1967) (ln units). Used for the uncalibrated comparison cases")
+reg("SO_SD", 0.05, "choice",
+    "design requirement: ground calibration fixes S_O, or equivalently the gauge/FIPEX same-beam ratio S_O/f (beam-flux "
+    "error cancels; with the leak-anchored gauge gain this is as good as S_O itself: findings doc section M), to 5% "
+    "1-sigma (ln units). Phase A A2: 5% -> recovery N2 26 -> 19%, recovery density 10 -> 7%. Uncalibrated: SO_BRACKET_SD")
+reg("SO_MODE", "estimate", "choice",
+    "estimate = ground-anchored in-flight S_O estimation (best accuracy, Stage 2b Nov 11); consider = uncertainty "
+    "carried but never estimated (Schmidt filter; the honest choice if S_O is NOT ground-calibrated); off = ignored")
+reg("SO_TRUTH_SD", 0.05, "sweep",
+    "spread of the TRUE ln S_O across runs (0 = truth uses R_TRUE exactly); equal to SO_SD = 'filter knows' its "
+    "calibration; larger = 'filter fooled' (ln units)")
 reg("SO_TRUTH_OFFSET", 0.0, "choice",
     "fixed shift added to every run's true ln S_O; used only to measure sensitivities (consider analysis) (ln units)")
 
 
-reg("GAPS", False, "choice", "simulate sensor outages in the truth and skip them in the filter")
+reg("GAPS", True, "choice",
+    "simulate sensor outages in the truth and skip them in the filter (on = realistic; tested Nov 10: density +1 pt at worst)")
 reg("GAUGE_GAP_EVERY", 43200.0, "assumption",
     "mean time between gauge outages (s): host power or mode interruptions; stress scenario, no vendor data")
 reg("GAUGE_GAP_LEN", 600.0, "assumption",
