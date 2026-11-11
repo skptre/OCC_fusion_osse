@@ -35,8 +35,9 @@ def log_sd(x, P, s, phase):
     K, N, ns = x.shape
     xf = x.reshape(K * N, ns)
     b = s.basis_t[phase].transpose(0, 1).reshape(K * N, -1) if s.harm_on else None
-    n = s.prior[phase].transpose(0, 1).reshape(K * N, -1) * torch.exp(correction(xf, b)[:, s.gidx])
-    a_rho, _ = group_H(n * s.mass, s.G, IDX["cd_bias"], b)
+    d = s.dz_t[phase].transpose(0, 1).reshape(K * N)
+    n = s.prior[phase].transpose(0, 1).reshape(K * N, -1) * torch.exp(correction(xf, b, d)[:, s.gidx])
+    a_rho, _ = group_H(n * s.mass, s.G, IDX["cd_bias"], b, d)
     a_rho[:, IDX["cd_bias"]] = 0.0
     grads = {"rho": a_rho[:, :ns]}
     for g in ("O", "N2"):
@@ -44,6 +45,7 @@ def log_sd(x, P, s, phase):
         a[:, [IDX[f"gap_{g}"], WC, IDX[f"w_{g}"]]] = 1.0
         if g == "N2" and b is not None:
             a[:, HARM] = b
+        a[:, IDX[f"dz_{g}"]] = d
         grads[g] = a
     Pf = P.reshape(K * N, ns, ns)
     return {q: torch.einsum("bi,bij,bj->b", a, Pf, a).clamp(min=0).sqrt().reshape(K, N) for q, a in grads.items()}

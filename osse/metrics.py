@@ -11,8 +11,9 @@ SENSORS = ("gauge", "o", "drag", "leak")
 
 class Scorer:
 
-    def __init__(self, n, device, dtype):
-        self.errors = {(w,q): RunningStats(n, device, dtype) for w in WINDOWS for q in ESTIMATES}
+    def __init__(self, n, device, dtype, windows=None):
+        self.windows = windows or {w: value(f"{w.upper()}_HOURS") for w in WINDOWS}
+        self.errors = {(w, q): RunningStats(n, device, dtype) for w in self.windows for q in ESTIMATES}
         self.nis = {s: RunningStats(n, device, dtype) for s in SENSORS}
         self.nees = RunningStats(n, device, dtype)
         self.nees_state = {s: RunningStats(n, device, dtype) for s in NEES_STATES}
@@ -20,32 +21,30 @@ class Scorer:
         self.rej = {s: RunningStats(n, device, dtype) for s in SENSORS}
     
     def window(self, hours):
-        for w in WINDOWS:
-            h0, h1 = value(f"{w.upper()}_HOURS")
+        for w, (h0, h1) in self.windows.items():
             if h0 <= hours < h1:
-                return w 
-
+                return w
         return None
-    
-    def add_errors(self, w, est, truth):
+
+    def add_errors(self, w, est, truth, mask=None):
         for q in ESTIMATES:
-            self.errors[(w, q)].add(est[q] / truth[q.split("_")[0]] - 1)
+            self.errors[(w, q)].add(est[q] / truth[q.split("_")[0]] - 1, mask=mask)
 
     def add_nis(self, sensor, info, offered=None):
         self.nis[sensor].add(info["nis"], mask=info["accepted"])
         if offered is not None:
             self.rej[sensor].add((~info["accepted"]).to(info["nis"].dtype), mask=offered)
 
-    def add_nees(self, x, x_true, P):
+    def add_nees(self, x, x_true, P, mask=None):
         d = (x - x_true).unsqueeze(-1)
         nees = (d.mT @ torch.linalg.solve(P, d)).squeeze(-1).squeeze(-1) / x.shape[1]
-        self.nees.add(nees)
+        self.nees.add(nees, mask=mask)
         err = x - x_true
         sd = torch.diagonal(P, dim1=1, dim2=2).sqrt()
         for i, s in enumerate(NEES_STATES):
             z = err[:, i] / sd[:, i]
-            self.z_state[s].add(z)
-            self.nees_state[s].add(z * z)
+            self.z_state[s].add(z, mask=mask)
+            self.nees_state[s].add(z * z, mask=mask)
 
     def summary(self):
         out = {}

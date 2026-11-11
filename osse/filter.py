@@ -1,58 +1,19 @@
 # Gauss-Markov structure: each gas group's log correction = slow model gap (random walk) + common wiggle + its own wiggle (both AR(1), matching the truth).
-
-import torch
 import math
+
 import numpy as np
+import torch
 
 STATES = ("gap_O", "gap_N2", "gap_He", "w_common", "w_O", "w_N2", "w_He",
-          "gauge_gain", "o_gain", "cd_bias", "n2_c1", "n2_s1", "n2_c2", "n2_s2", "ln_so")
+          "gauge_gain", "o_gain", "cd_bias", "n2_c1", "n2_s1", "n2_c2", "n2_s2",
+          "dz_O", "dz_N2", "dz_He", "ln_so")
 IDX = {name: i for i, name in enumerate(STATES)}
 N_STATES = len(STATES)
 GAP = slice(0, 3)
 WC = IDX["w_common"]
 WG = slice(4, 7)
 HARM = slice(IDX["n2_c1"], IDX["n2_c1"] + 4)
-N2G = 1
-CONSIDER = (IDX["ln_so"],)
-NEES_STATES = STATES[:IDX["cd_bias"] + 1] + ("ln_so",)
-
-def lt_basis(lt_hours):
-    w = 2 * math.pi * lt_hours / 24
-    return np.stack([np.cos(w), np.sin(w), np.cos(2 * w), np.sin(2 * w)], axis=-1)
-
-
-def correction(x, basis=None):
-    c = x[:, GAP] + x[:, WC:WC + 1] + x[:, WG]
-    if basis is not None:
-        c = c.clone()
-        c[:, N2G] = c[:, N2G] + (x[:, HARM] * basis).sum(1)
-    return c
-
-
-
-def group_H(terms, G, col, basis=None):
-    tot = terms.sum(1)
-    share = (terms / tot[:, None]) @ G
-    H = torch.zeros(terms.shape[0], N_STATES, device=terms.device, dtype=terms.dtype)
-    H[:, GAP] = share
-    H[:, WC] = share.sum(1)
-    H[:, WG] = share
-    if basis is not None:
-        H[:, HARM] = share[:, N2G:N2G + 1] * basis
-    H[:, col] = 1.0
-    return H, tot
-
-
-import math
-
-STATES = ("gap_O", "gap_N2", "gap_He", "w_common", "w_O", "w_N2", "w_He",
-          "gauge_gain", "o_gain", "cd_bias", "n2_c1", "n2_s1", "n2_c2", "n2_s2", "ln_so")
-IDX = {name: i for i, name in enumerate(STATES)}
-N_STATES = len(STATES)
-GAP = slice(0, 3)
-WC = IDX["w_common"]
-WG = slice(4, 7)
-HARM = slice(IDX["n2_c1"], IDX["n2_c1"] + 4)
+DZ = slice(IDX["dz_O"], IDX["dz_O"] + 3)
 N2G = 1
 CONSIDER = (IDX["ln_so"],)
 NEES_STATES = STATES[:IDX["cd_bias"] + 1] + ("ln_so",)
@@ -63,15 +24,18 @@ def lt_basis(lt_hours):
     return np.stack([np.cos(w), np.sin(w), np.cos(2 * w), np.sin(2 * w)], axis=-1)
 
 
-def correction(x, basis=None):
+def correction(x, basis=None, dz=None):
     c = x[:, GAP] + x[:, WC:WC + 1] + x[:, WG]
-    if basis is not None:
+    if basis is not None or dz is not None:
         c = c.clone()
+    if basis is not None:
         c[:, N2G] = c[:, N2G] + (x[:, HARM] * basis).sum(1)
+    if dz is not None:
+        c = c + x[:, DZ] * dz[:, None]
     return c
 
 
-def group_H(terms, G, col, basis=None):
+def group_H(terms, G, col, basis=None, dz=None):
     tot = terms.sum(1)
     share = (terms / tot[:, None]) @ G
     H = torch.zeros(terms.shape[0], N_STATES, device=terms.device, dtype=terms.dtype)
@@ -80,12 +44,15 @@ def group_H(terms, G, col, basis=None):
     H[:, WG] = share
     if basis is not None:
         H[:, HARM] = share[:, N2G:N2G + 1] * basis
+    if dz is not None:
+        H[:, DZ] = share * dz[:, None]
     H[:, col] = 1.0
     return H, tot
 
 
-def density(n_prior, x, gidx, mass, amu, basis=None):
-    return (n_prior * torch.exp(correction(x, basis)[:, gidx]) * mass).sum(1) * amu
+def density(n_prior, x, gidx, mass, amu, basis=None, dz=None):
+    return (n_prior * torch.exp(correction(x, basis, dz)[:, gidx]) * mass).sum(1) * amu
+
 
 def consider_update(x, P, H, z, h, r2, consider=(), mask=None, gate=None):
     PH = (P @ H.unsqueeze(-1)).squeeze(-1)

@@ -5,10 +5,10 @@ from osse.filter import IDX, group_H
 def gauge_true(n_true, r_true, gain, drift, tk, sd, noise):
     return torch.log((n_true * r_true).sum(1)) + gain + drift * tk + sd * noise
 
-def gauge_predict(n_prior, e, r_filt, G, x, o_idx, basis=None):
+def gauge_predict(n_prior, e, r_filt, G, x, o_idx, basis=None, dz=None):
     terms = r_filt * n_prior * e
     terms[:, o_idx] = terms[:, o_idx] * torch.exp(x[:, IDX["ln_so"]])
-    H, tot = group_H(terms, G, IDX["gauge_gain"], basis)
+    H, tot = group_H(terms, G, IDX["gauge_gain"], basis, dz)
     H[:, IDX["ln_so"]] = terms[:, o_idx] / tot
     return torch.log(tot) + x[:, IDX["gauge_gain"]], H
 
