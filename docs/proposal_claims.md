@@ -108,6 +108,32 @@ scatter of 30 s errors, MAE p50 / p90; model = forecast-driven MSIS 2.1 on the s
   the tail vanishes (gauge+drag NEES p90 5.4). Report medians AND p90; error-bar calibration must cover the tail;
   Phase 2: FIPEX gain/drift robustness (consider or robust update).
 
+## HELD-OUT REAL-DATA VALIDATION (freeze-v1 + 3 generic fixes, Nov 11; scripts/de2_replay.py, 200 runs) - quotable
+Baseline hardware (gauge + FIPEX + drag, no leak), prior = forecast/real-driver MSIS 2.1. MAE p50, model -> ours.
+- GRACE-FO May 2024 superstorm (TOLEOS v0003 accelerometer density, 473-507 km): density quiet 48.6 -> 15.7%,
+  storm 46.9 -> 14.3%, recovery 82.5 -> 13.3%. Error is almost all BIAS (+13-16%); scatter is small => the
+  remaining error is one absolute-calibration number, removable by commissioning cross-calibration against an
+  accelerometer mission (cal/val plan) or the Phase 2 leak. With leak: 5.4 / 5.3 / 7.5%. Meets the 20% benchmark
+  without any external calibration. (GRACE-FO O/N2 "truth" is MSIS-scaled, so only density is a real test there.)
+- DE-2 NACS 1982-83 (real in-situ density + composition, elliptical 280-450 km, NACS absolute cal ~25%):
+  DENSITY better than the model on ALL 12 test days: Sep 1982 (8 days incl. storm) 7.0/6.4/11.2/13.4/39.6/39.8/
+  39.3/21.8 -> 5.4/5.2/5.7/6.4/10.8/8.2/6.8/7.8%; Mar 1982 20.3/23.6 -> 6.9/6.0%; Feb 1983 11.3/16.4 -> 6.9/11.1%.
+  Storm days: 4-6x better.
+- DE-2 COMPOSITION: mixed. O better on 8/12 days (Sep storm days 5-7: 36.9/34.8/26.3 -> 14.8/16.8/19.2%), N2
+  better on 7/12 (Sep storm 88/83/171 -> 39/39/136%); worse: O on Sep d1-2, d8, Feb d2; N2 on Sep d1-2, d8, Mar. Systematic split: our O biased LOW (-7 to -24%), N2 HIGH, density right => the
+  gauge's O/N2 partition (S_O) disagrees with NACS's own calibration; that size is inside NACS's ~25% absolute
+  uncertainty, so DE-2 cannot settle it. Claim: "density validated; composition improved during the storm, limited
+  elsewhere by the reference's own calibration". Do NOT claim composition validated on DE-2.
+- ERROR BARS on real data: NEES p50 18 (GRACE-FO), 23-79 (DE-2) => filter overconfident on real data beyond the
+  OSSE calibration factors; Phase 1 task: real-data error-bar calibration (state it, don't hide it).
+- FIXES applied after first test run (generic, disclosed in one clause; register detail here): (1) simulation truth
+  summed the C_D O-term over uncovered steps (sparse DE-2 windows only) -> exploded Sep 1982 after day 4; (2) FIPEX
+  prediction lacked the altitude-slope term (inconsistent with the gauge on non-circular orbits); (3) drag update
+  now gated like the other sensors. Circular-orbit OSSE results unchanged (100-run check, 4 decimals). Fix (2)
+  costs a little on GRACE-FO (baseline was 15/12/12 -> now 15.7/14.3/13.3; leak 5.2/4.2/5.5 -> 5.4/5.3/7.5); kept
+  because it is physically correct. Proposal clause: "a simulation bookkeeping error on sparse-coverage windows
+  was fixed; circular-orbit results unchanged."
+
 ## STAGE 6: the data improve the model (driver fit; scripts/driver_fit.py, out/stage6/) - Relevance evidence
 Method: every 3 h, fit 2 numbers (effective F10.7 scale, effective ap scale on the NOAA forecast drivers) so NRLMSIS
 2.1 matches the FUSED density + O, weighted by filter covariance x calibration factors (2.0 / 2.8) + 5% representation
@@ -167,8 +193,50 @@ runs before quoting as statistics.
   S_O tracking, FIPEX-vs-gauge drift tracking.
 - Validation: OSSE truth ladder; DE-2 replay; GRACE-FO/Swarm conjunctions (validation only).
 
-## Requirements to state (from Phase A; PRELIM until the final sweep)
-- Gauge drift <~0.5%/day; FIPEX drift <~1%/day; S_O (or S_O/f ratio) known to ~5%; C_D 5% with host geometry model.
+## Requirements to state (FINAL Phase A, out/phase_a3/A1-A6.csv, 500 runs, harsh truth, frozen architecture
+## WITH leak = register default; no-leak baseline row: density 5.2 / 5.8 / 6.8%). Density / O / N2 MAE p50, q/s/r.
+Baseline (A1, 2000 runs): density 3.2/3.6/4.7, O 5.6/9.8/10.6, N2 10.3/15.5/14.4.
+!! A1 (drag/C_D), A2 (S_O), A4 (gauge drift/noise) DO NOT transfer to the no-leak baseline (the leak pins the
+!! gauge gain; without it C_D + S_O are the absolute anchor). Rerun queued: phase_a.py A1,A2,A4 --noleak ->
+!! out/phase_a_noleak. Until then do NOT state "C_D insensitive" / "single-frequency GPS is enough" for baseline.
+!! A3 (FIPEX), A6 (gas factors), outages transfer (composition is FIPEX-driven).
+- S_O ground calibration DRIVES the product: 3% -> density 2.9/3.1/3.6; 5% (baseline) 3.2/3.6/4.7; 10% ->
+  4.5/5.1/7.7, O 6.9/12.1/14.0; uncalibrated (16% bracket, consider) 5.7/5.4/5.9 but N2 recovery 16.5. Filter fooled
+  (truth 10%, assumes 5%): 4.0/4.3/5.5. => REQUIREMENT: S_O known to <=5% by ground atomic-O calibration.
+  INFICON (Nov 11 email): no atomic-O data for MAG084; expects N2-like behaviour; O-resistant materials => the S_O
+  ground calibration is a required Phase 1 test (AO beam facility), not optional.
+- FIPEX drift drives O: 0 -> O storm 6.6%; 1%/day 6.5%; 3%/day (baseline) 9.8%; 6%/day 12.5%. FIPEX gain prior
+  5% -> quiet O 3.4% (vs 5.6%). => REQUIREMENT: FIPEX drift <=3%/day (goal 1%/day), unit gain known to <=12%.
+- Gauge drift: 0.5%/day -> density storm 3.2%, N2 13.5%; 2%/day (baseline) 3.6 / 15.5; 5%/day 5.4 / 18.5.
+  INFICON: "not seen major drift" long term (lab data, not statistical) => baseline 2%/day is conservative.
+- Gauge noise 0.5-5% per 30 s: density 3.0-3.9% (insensitive). INFICON: no fluctuation at 1e-7 mbar beyond
+  rounding (3-digit output) => our 1% is conservative.
+- Drag: per-orbit noise 5-25% and C_D prior 5-25% all give density 2.8-3.7% storm (insensitive once gauge is
+  calibrated); dual-frequency GPS no gain; daily-only drag fallback 3.6/3.6/4.9 => host needs only single-frequency
+  GPS orbits.
+- Outages (gauge 30 min / 6 h, FIPEX 1 h / 6 h): no material change.
+- Gas factors (filter fooled): He +-25%, N +-10%: no change; all non-O +-5%: N2 quiet 9.3-14.2%. INFICON factors
+  (p_eff = C x display): He C=5.9 -> sensitivity 0.17 (ours 0.18, inside the +-25% sweep); Ar C=0.8 -> 1.25 (ours
+  1.29); O2 = air (ours 1.01). => our factors vendor-consistent.
+- Gauge gain prior: INFICON says 30% is the MAXIMUM envelope (all sources, not per-unit calibrated); we used 30%
+  as 1-sigma => conservative by ~3x; gain is estimated in flight anyway.
+
+## Vendor facts for the proposal (INFICON MAG084 email Nov 11 2026; attachments = MAG084/VGC094 manual pages)
+- Accuracy 30% of reading = max envelope; gauges not individually calibrated (population characteristic curve).
+- Repeatability 5% short-term (pressure cycling); long-term no major drift observed (not statistical).
+- Linear below 1e-5 mbar; continuous output, no jumps; analog output (CP300/PE300 boards) for fastest unfiltered
+  signal; controller 100 Hz internal, 10 Hz display.
+- Temperature: via thermal transpiration (sqrt(T)) + wall outgassing; no self-heating; ignition "clean-up"
+  pressure transient after power-on => ops: discard first ~30 min after power-on (C7 analysis basis: +-20 K wall
+  swing -> ~+-1.7% gain, inside the swept gauge-noise/drift range).
+- Pumping speed 0.01-0.1 L/s (N2), changes with wear => small vs ram-chamber orifice conductance (check with CAD).
+- Stray magnetic field < 0.05 mT beyond ~4 cm (shielded, GEMINI design) => host magnetometer/torquer
+  compatibility point.
+- Price: 15% university discount; volume pricing on request.
+
+## C7 stress (analysis, not simulated - decided Nov 11): wall temperature (+-1.7%/orbit via sqrt(T)), pointing
+## (10 deg -> ~1.5% via cos), filter mis-tuning (Q choice tested on 2 truths) all sit inside the Phase A swept
+## ranges of gauge noise/drift and the "filter fooled" cases; stated as analysis in the proposal.
 - Host asks: single-frequency GPS (dual = upside), attitude knowledge, geometry model, optional yaw manoeuvres.
 
 ## Resource needs

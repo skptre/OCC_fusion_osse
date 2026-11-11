@@ -77,16 +77,22 @@ def summary(rows):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("sweep", choices=list(SWEEPS) + ["all"])
+    ap.add_argument("sweep", help="A1..A6, comma list (A1,A2,A4) or all")
     ap.add_argument("--runs", type=int, default=2000)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--noleak", action="store_true",
+                    help="baseline hardware (no calibrated leak): every config without 'leak'; writes out/phase_a_noleak")
     args = ap.parse_args()
-    OUT.mkdir(parents=True, exist_ok=True)
-    for name in (list(SWEEPS) if args.sweep == "all" else [args.sweep]):
+    out = REPO / "out" / "phase_a_noleak" if args.noleak else OUT
+    out.mkdir(parents=True, exist_ok=True)
+    for name in (list(SWEEPS) if args.sweep == "all" else args.sweep.split(",")):
         about, configs = SWEEPS[name]
+        if args.noleak:
+            configs = [{**c, "USE_SENSORS": tuple(x for x in c.get("USE_SENSORS", LEAK) if x != "leak")}
+                       for c in configs]
         print(f"=== {name}: {about} ({len(configs)} configs, {args.runs} runs each) ===", flush=True)
         rows = simt.sweep(lambda **cfg: OSSE(**cfg), configs, args.runs, seed=1, device=args.device,
-                          dtype=torch.float64, csv_path=str(OUT / f"{name}.csv"), resume=True)
+                          dtype=torch.float64, csv_path=str(out / f"{name}.csv"), resume=True)
         summary(rows)
 
 
