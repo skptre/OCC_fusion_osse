@@ -1,0 +1,72 @@
+grid (0.45, 0.5, 0.56, 0.63, 0.7, 0.77, 0.85), filter default S_O 0.56, overrides none, 200 runs
+
+=== truth S_O 0.56 ===
+    filter S_O 0.45: mean NLL     -63201.6   quiet N2 MAE p50 0.193   NEES p50 76.85   (100 s)
+    filter S_O 0.50: mean NLL     -63205.4   quiet N2 MAE p50 0.129   NEES p50 23.73   (99 s)
+    filter S_O 0.56: mean NLL     -63206.6   quiet N2 MAE p50 0.060   NEES p50 3.09   (99 s)
+    filter S_O 0.63: mean NLL     -63204.3   quiet N2 MAE p50 0.045   NEES p50 21.48   (113 s)
+    filter S_O 0.70: mean NLL     -63199.2   quiet N2 MAE p50 0.101   NEES p50 71.69   (128 s)
+    filter S_O 0.77: mean NLL     -63192.3   quiet N2 MAE p50 0.175   NEES p50 144.76   (122 s)
+    filter S_O 0.85: mean NLL     -63183.1   quiet N2 MAE p50 0.258   NEES p50 248.45   (115 s)
+  estimate          p10 0.489  p50 0.553  p90 0.611   (truth 0.56)
+  estimate - truth  mean -0.010  rms 0.046
+  best grid point   0.45:9%  0.50:22%  0.56:53%  0.63:15%  0.70:1%  0.77:0%  0.85:0%
+  p50 errors        fixed 0.56 filter | bank-picked filter | true-S_O filter
+    quiet_rho_fused_mae      0.0457 | 0.0431 | 0.0457
+    quiet_O_fused_mae        0.0422 | 0.0387 | 0.0422
+    quiet_N2_fused_mae       0.0596 | 0.0767 | 0.0596
+    storm_rho_fused_mae      0.0436 | 0.0439 | 0.0436
+    storm_O_fused_mae        0.0965 | 0.0904 | 0.0965
+    storm_N2_fused_mae       0.0856 | 0.0913 | 0.0856
+    recovery_rho_fused_mae   0.0684 | 0.0665 | 0.0684
+    recovery_O_fused_mae     0.0486 | 0.0525 | 0.0486
+    recovery_N2_fused_mae    0.1408 | 0.1511 | 0.1408
+    nees                     3.0871 | 4.1749 | 3.0871
+
+=== truth S_O 0.66 ===
+    filter S_O 0.45: mean NLL     -63277.0   quiet N2 MAE p50 0.285   NEES p50 246.33   (120 s)
+    filter S_O 0.50: mean NLL     -63285.6   quiet N2 MAE p50 0.227   NEES p50 131.55   (112 s)
+    filter S_O 0.56: mean NLL     -63291.5   quiet N2 MAE p50 0.161   NEES p50 48.56   (100 s)
+    filter S_O 0.63: mean NLL     -63294.2   quiet N2 MAE p50 0.089   NEES p50 6.62   (99 s)
+    filter S_O 0.70: mean NLL     -63293.7   quiet N2 MAE p50 0.042   NEES p50 7.65   (102 s)
+    filter S_O 0.77: mean NLL     -63290.8   quiet N2 MAE p50 0.058   NEES p50 39.19   (105 s)
+    filter S_O 0.85: mean NLL     -63285.6   quiet N2 MAE p50 0.127   NEES p50 102.61   (105 s)
+  estimate          p10 0.601  p50 0.655  p90 0.706   (truth 0.66)
+  estimate - truth  mean -0.005  rms 0.049
+  best grid point   0.45:0%  0.50:2%  0.56:6%  0.63:50%  0.70:37%  0.77:4%  0.85:0%
+  p50 errors        fixed 0.56 filter | bank-picked filter
+    quiet_rho_fused_mae      0.0368 | 0.0441
+    quiet_O_fused_mae        0.0224 | 0.0445
+    quiet_N2_fused_mae       0.1610 | 0.0684
+    storm_rho_fused_mae      0.0514 | 0.0397
+    storm_O_fused_mae        0.0498 | 0.0872
+    storm_N2_fused_mae       0.0899 | 0.0922
+    recovery_rho_fused_mae   0.0659 | 0.0686
+    recovery_O_fused_mae     0.0428 | 0.0536
+    recovery_N2_fused_mae    0.2323 | 0.1443
+    nees                     48.5604 | 7.4280
+
+=== truth S_O 0.77 ===
+    filter S_O 0.45: mean NLL     -63332.9   quiet N2 MAE p50 0.365   NEES p50 522.54   (106 s)
+    filter S_O 0.50: mean NLL     -63346.5   quiet N2 MAE p50 0.312   NEES p50 338.83   (106 s)
+    filter S_O 0.56: mean NLL     -63357.1   quiet N2 MAE p50 0.252   NEES p50 186.03   (105 s)
+    filter S_O 0.63: mean NLL     -63364.5   quiet N2 MAE p50 0.184   NEES p50 75.92   (106 s)
+    filter S_O 0.70: mean NLL     -63368.1   quiet N2 MAE p50 0.119   NEES p50 19.22   (107 s)
+    filter S_O 0.77: mean NLL     -63368.9   quiet N2 MAE p50 0.061   NEES p50 2.35   (106 s)
+    filter S_O 0.85: mean NLL     -63367.4   quiet N2 MAE p50 0.045   NEES p50 18.88   (106 s)
+  estimate          p10 0.709  p50 0.762  p90 0.810   (truth 0.77)
+  estimate - truth  mean -0.011  rms 0.046
+  best grid point   0.45:0%  0.50:0%  0.56:0%  0.63:3%  0.70:26%  0.77:54%  0.85:16%
+  p50 errors        fixed 0.56 filter | bank-picked filter | true-S_O filter
+    quiet_rho_fused_mae      0.0306 | 0.0446 | 0.0459
+    quiet_O_fused_mae        0.0577 | 0.0408 | 0.0434
+    quiet_N2_fused_mae       0.2522 | 0.0715 | 0.0613
+    storm_rho_fused_mae      0.0593 | 0.0390 | 0.0398
+    storm_O_fused_mae        0.0340 | 0.0808 | 0.0825
+    storm_N2_fused_mae       0.1623 | 0.0877 | 0.0856
+    recovery_rho_fused_mae   0.0619 | 0.0687 | 0.0696
+    recovery_O_fused_mae     0.0565 | 0.0509 | 0.0490
+    recovery_N2_fused_mae    0.3143 | 0.1469 | 0.1386
+    nees                     186.0330 | 2.8436 | 2.3467
+
+wrote out\a2b\fipex30_drift.csv

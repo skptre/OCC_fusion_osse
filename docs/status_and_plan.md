@@ -195,6 +195,31 @@ Always report all three; never hide recovery.
 
 **Reviewer objections, with answers:** see research_findings §10. Plus the magnet/host-ADCS hosting risk (mech team).
 
+**Phase A first pass** (Nov 9, Mac, 200 runs/config, identical twin, GM filter; baseline = FIPEX 30%, gauge 30%, FIPEX drift 3%/day, gauge drift 2%/day; MAE p50):
+- **Density is robust to every unknown in range:** worst case recovery 11% p50 / 18% p90 (gauge drift 5%/day). Always inside 20%.
+- **Ranking for composition:**
+  1. **S_O.** ±11–12% mismatch → N₂ up to 14–21%, NEES 19–26; ±25–37% → N₂ 22–31%, NEES 59–186. Density unaffected (≤6%). **Must be estimated in flight** (likelihood bank).
+  2. **Gauge drift.** 0.1–0.5%/day → recovery density 4.1–4.4%, recovery N₂ 11.5%; 5%/day → recovery density 11%, N₂ 18%. **Requirement ≲0.5%/day.**
+  3. **FIPEX drift.** 0 → 3%/day: storm O 4.0 → 9.7%, storm density 2.9 → 4.4%. **Requirement ≲1%/day** (storm O ≤6.7%).
+  4. **Ground calibration of both gains.** 2% → quiet density 1.8%, O 1.8%, N₂ 4.0%; storm N₂ unchanged (~10%: limited by S_O/atmosphere, not calibration).
+  5. **C_D.** 5% vs 15% → storm density 3.6 vs 4.6%, recovery 5.6 vs 7.6%.
+  6. Drag noise 5–16% and gauge noise 0.5–3%: negligible.
+- **A2b: S_O in-flight estimate survives realistic FIPEX** (Nov 9, PC, 200 runs, `scripts/a2b_so_bank.py`, FIPEX 30% + 3%/day drift, 7-filter likelihood bank, grid 0.45–0.85):
+  - truth 0.56 → estimate p50 0.553 (P10–P90 0.489–0.611); truth 0.66 (off-grid) → 0.655 (0.601–0.706); truth 0.77 → 0.762 (0.709–0.810).
+  - Bias ≤0.011, rms 0.046–0.049 (~7–8% of S_O) from one unit in 5 days. The prior bracket ~0.5–0.77 shrinks to about ±0.05. Same width as the easy test (12% FIPEX, no drift): S_O information comes from the gauge-vs-FIPEX variation along the orbit, not FIPEX's absolute gain.
+  - Payoff vs a fixed 0.56 assumption, when truth is 0.77: quiet N₂ 25% → 7%, recovery N₂ 31% → 15%, NEES 186 → 2.8. Truth 0.66: quiet N₂ 16% → 7%, NEES 49 → 7.4.
+  - Cost when 0.56 was already right: quiet N₂ 6.0% → 7.7%, NEES 3.1 → 4.2 (picking the wrong neighbour sometimes). A continuous ML fit or weight-averaged filters (Phase B) should shrink this.
+  - Side observations (not yet explained, check in Phase B): a wrong S_O sometimes lowers O error while raising N₂ (error moves between gases); a filter one grid step *above* the truth gets the lowest quiet N₂ but bad NEES, hinting at a residual quiet-N₂ bias that a too-high S_O cancels.
+  - Caveats: identical twin; other gas factors assumed exact (a wrong N₂/O₂ factor could alias into S_O: untested); how many days are needed is untested.
+- **Next:** Colab 10k-run curves, then Phase B.
+
+**Phase B core (Nov 10), fraternal sibling truth (NRLMSISE-00), true S_O drawn per run, ram gauge model; MAE p50 filtered -> smoothed; details in docs/research_findings_2026-11-10.md:**
+- Three sensors: density 9.0/9.0/9.3% -> 6.9/7.4/8.7%; O 9.6/11.7/10.0% -> 7.8/10.1/8.7%; N2 18/12/25% -> 16/13/23% (quiet/storm/recovery). Model prior on this truth: density 15/22/15%, N2 21/28/19%.
+- With the daily leak-calibrated gauge: density about 4-6%; O 6-10%; N2 10-19%.
+- Error bars (consider analysis for S_O + smoother): density and O honest (z 0.8-1.4); N2 about 2x overconfident -> calibration factor, re-check on DTM2020 (day/night N2 pattern).
+- Key lessons: the twin-derived 5% model-error prior made the filter inherit model bias (fixed: 20%, Bruinsma & Laurens 2024); in-flight S_O estimation fails without a ground anchor (S_O and the model's O/N2 error are indistinguishable); ground S_O calibration to 5% improves storm N2 15 -> 12%.
+- Earlier "2% density with leak" assumed S_O known exactly: superseded.
+
 **Not yet defensible as final:** any number from the identical twin. The fraternal truth (C2) + DE-2 + vendor numbers decide the final figures.
 
 ## 7b. Findings log (revisit with the user before Phase A results are final)
