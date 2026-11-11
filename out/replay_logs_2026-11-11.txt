@@ -1,0 +1,32 @@
+Held-out real-data replays, freeze-v1 + 3 generic fixes (scenario.py: C_D cover weight, FIPEX dz_O term, drag gate).
+Run by the user on Mac, Nov 11 2026, scripts/de2_replay.py, 200 runs each. Baseline = USE_SENSORS gauge,o,drag;
+last block = GRACE-FO with leak (register default). Console output copied verbatim (MAE p50, bias p50 in brackets).
+
+test_1982-09 (baseline)
+  day1: rho model 0.070 (+0.060) -> ours 0.054 (-0.009) | O model 0.057(+0.019) -> ours 0.121 (-0.111) | N2 model 0.276 (+0.263) -> ours 0.437(+0.434)
+  day2: rho model 0.064 (+0.017) -> ours 0.052 (-0.011) | O model 0.062(-0.006) -> ours 0.092 (-0.088) | N2 model 0.194 (+0.142) -> ours 0.305(+0.256)
+  day3: rho model 0.112 (+0.094) -> ours 0.057 (-0.012) | O model 0.106(+0.039) -> ours 0.078 (-0.068) | N2 model 0.335 (+0.297) -> ours 0.134(+0.077)
+  day4: rho model 0.134 (+0.006) -> ours 0.064 (+0.007) | O model 0.176(+0.061) -> ours 0.148 (-0.100) | N2 model 0.408 (+0.126) -> ours 0.288(+0.232)
+  day5: rho model 0.396 (+0.395) -> ours 0.108 (+0.069) | O model 0.369(+0.332) -> ours 0.148 (-0.116) | N2 model 0.880 (+0.858) -> ours 0.391(+0.297)
+  day6: rho model 0.398 (+0.398) -> ours 0.082 (+0.054) | O model 0.348(+0.348) -> ours 0.168 (-0.166) | N2 model 0.830 (+0.829) -> ours 0.392(+0.354)
+  day7: rho model 0.393 (+0.393) -> ours 0.068 (-0.009) | O model 0.263(+0.263) -> ours 0.192 (-0.191) | N2 model 1.713 (+1.713) -> ours 1.361(+1.361)
+  day8: rho model 0.218 (+0.218) -> ours 0.078 (+0.015) | O model 0.152(+0.130) -> ours 0.237 (-0.237) | N2 model 0.667 (+0.667) -> ours 0.686(+0.684)
+  NEES p50 78.65
+test_1982-03 (baseline)
+  day1: rho model 0.203 (+0.146) -> ours 0.069 (+0.015) | O model 0.206(+0.126) -> ours 0.094 (-0.074) | N2 model 0.469 (+0.444) -> ours 0.507(+0.487)
+  day2: rho model 0.236 (+0.220) -> ours 0.060 (+0.009) | O model 0.290(+0.241) -> ours 0.210 (-0.209) | N2 model 0.381 (+0.342) -> ours 0.592(+0.592)
+  NEES p50 27.73
+test_1983-02 (baseline)
+  day1: rho model 0.113 (-0.055) -> ours 0.069 (-0.047) | O model 0.169(-0.151) -> ours 0.098 (-0.092) | N2 model 0.213 (+0.161) -> ours 0.166(+0.099)
+  day2: rho model 0.164 (+0.038) -> ours 0.111 (-0.001) | O model 0.210(-0.070) -> ours 0.240 (-0.078) | N2 model 0.341 (+0.199) -> ours 0.251(+0.104)
+  NEES p50 22.69
+gracefo_2024-05 (baseline)
+  quiet: rho model 0.486 (+0.486) -> ours 0.157 (+0.157) | O model 0.486 (+0.486) -> ours 0.159 (+0.159) | N2 model 0.525 (+0.524) -> ours 0.208 (+0.204)
+  storm: rho model 0.469 (+0.185) -> ours 0.143 (+0.143) | O model 0.475 (+0.226) -> ours 0.140 (+0.139) | N2 model 0.486 (+0.061) -> ours 0.187 (+0.162)
+  recovery: rho model 0.825 (+0.824) -> ours 0.133 (+0.133) | O model 0.778 (+0.778) -> ours 0.157 (+0.157) | N2 model 1.072 (+1.071) -> ours 0.123 (-0.011)
+  NEES p50 18.18
+gracefo_2024-05 (with leak)
+  quiet: rho model 0.486 (+0.486) -> ours 0.054 (+0.051) | O model 0.486 (+0.486) -> ours 0.059 (+0.058) | N2 model 0.525 (+0.524) -> ours 0.115 (+0.079)
+  storm: rho model 0.469 (+0.185) -> ours 0.053 (+0.048) | O model 0.475 (+0.226) -> ours 0.056 (+0.047) | N2 model 0.486 (+0.061) -> ours 0.124 (+0.052)
+  recovery: rho model 0.825 (+0.824) -> ours 0.075 (+0.075) | O model 0.778 (+0.778) -> ours 0.098 (+0.098) | N2 model 1.072 (+1.071) -> ours 0.117 (-0.074)
+  NEES p50 18.27
