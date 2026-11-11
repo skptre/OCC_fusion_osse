@@ -29,11 +29,17 @@ def run_msis(dates, lat, lon, alt_km, f107, f107a, aps, version):
     return np.stack([cols[s] for s in value("SPECIES")], axis=1)
 
 
-def build_tables(alt_km, n_phases, cache_dir="cache", truth_version=None):
+def build_tables(alt_km, n_phases, cache_dir="cache", truth_version=None, truth_kind=None):
     if truth_version is None:
         truth_version = value("TRUTH_MSIS_VERSION")
+    if truth_kind is None:
+        truth_kind = value("TRUTH_KIND")
+    pert = truth_kind == "perturbed"
+    sds = (value("TRUTH_F107_SD"), value("TRUTH_AP_SD"), value("TRUTH_O_SD"))
     nday = value("NDAY")
     tag = "" if truth_version == value("MSIS_VERSION") else f"_truthv{truth_version:g}"
+    if pert:
+        tag += "_pert" + "_".join(f"{v:g}" for v in sds)
     path = os.path.join(cache_dir, f"msis_real_{alt_km}km_{n_phases}ph_{nday}d{tag}.npz")
     if os.path.exists(path):
         d = np.load(path)
@@ -48,9 +54,34 @@ def build_tables(alt_km, n_phases, cache_dir="cache", truth_version=None):
     period = 0.0
     for j in range(n_phases):
         lat, lon, period = orbit(t, alt_km, 2 * math.pi * j / n_phases)
-        truth[j] = run_msis(dates, lat, lon, alt_km, f107, f107a, aps_truth, truth_version)
+        if pert:
+            e_f, e_ap, e_o = truth_errors(len(t), j, *sds)
+            truth[j] = run_msis(dates, lat, lon, alt_km, f107 * np.exp(e_f), f107a,
+                                aps_truth * np.exp(e_ap)[:, None], truth_version)
+            truth[j][:, value("SPECIES").index("O")] *= np.exp(e_o)
+        else:
+            truth[j] = run_msis(dates, lat, lon, alt_km, f107, f107a, aps_truth, truth_version)
         prior[j] = run_msis(dates, lat, lon, alt_km, f107, value("PRIOR_F107A"), aps_prior, value("MSIS_VERSION"))
     nper = int(round(period / value("DT")))
     os.makedirs(cache_dir, exist_ok=True)
     np.savez_compressed(path, truth=truth, prior=prior, nper=nper)
     return truth, prior, nper
+
+def ar1_series(n, dt, tau, sd, rng):
+    a = math.exp(-dt / tau)
+    kick = sd * math.sqrt(1 - a * a)
+    w = rng.standard_normal(n)
+    x = np.empty(n)
+    x[0] = sd * w[0]
+    for i in range(1, n):
+        x[i] = a * x[i - 1] + kick * w[i]
+    return x
+
+
+def truth_errors(n, phase, f_sd, ap_sd, o_sd):
+    rng = np.random.default_rng(value("TRUTH_ERR_SEED") + phase)
+    dt = value("DT")
+    e_f = ar1_series(n, dt, value("TRUTH_ERR_TAU"), f_sd, rng)
+    e_ap = ar1_series(n, dt, value("TRUTH_ERR_TAU"), ap_sd, rng)
+    e_o = ar1_series(n, dt, value("TRUTH_O_TAU"), o_sd, rng)
+    return e_f, e_ap, e_o

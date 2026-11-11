@@ -29,7 +29,7 @@ class OSSE(Scenario):
         self.dt = get("DT")
         self.a_common, self.kick_common = self._ar1(get("TRUTH_COMMON_SD"), get("TRUTH_COMMON_TAU"))
         self.a_species, self.kick_species = self._ar1(get("TRUTH_SPECIES_SD"), get("TRUTH_SPECIES_TAU"))
-        self.truth_np, self.prior_np, self.nper = build_tables(self.alt_km, self.n_phases, cache_dir, get("TRUTH_MSIS_VERSION"))
+        self.truth_np, self.prior_np, self.nper = build_tables(self.alt_km, self.n_phases, cache_dir, get("TRUTH_MSIS_VERSION"), get("TRUTH_KIND"))
         self.n_steps = self.truth_np.shape[1]
         self._key = None
 

@@ -239,3 +239,19 @@ reg("OUTLIER_RATE", 0.0, "assumption",
 reg("OUTLIER_SIZE", 0.3, "assumption", "gauge spike size, +/- (ln units)")
 reg("NIS_GATE", 15.1, "choice",
     "reject a gauge or FIPEX reading if NIS > 15.1 (chi-square 1 dof, p = 1e-4); 0 = no gate")
+
+
+reg("TRUTH_KIND", "msis", "choice",
+    "msis = plain MSIS truth (version TRUTH_MSIS_VERSION); perturbed = same plus an effective-driver error field "
+    "(Sutton 2018 SW 16:736; Licata et al. 2022 SW e2022SW003267) calibrated to published model-vs-data error")
+reg("TRUTH_F107_SD", 0.12, "sweep",
+    "truth effective-F10.7 error, AR(1) (ln units); set by scripts/calibrate_truth.py so the storm-window truth-vs-MSIS "
+    "density scatter matches the NRLMSISE-00 storm std ~0.2 at CHAMP altitudes (Bruinsma & Laurens 2024 JSWSC 14:28)")
+reg("TRUTH_AP_SD", 0.40, "sweep", "truth effective-ap error, AR(1) (ln units); calibrated together with TRUTH_F107_SD")
+reg("TRUTH_ERR_TAU", 43200.0, "assumption",
+    "correlation time of the effective-driver error (s): 12 h; model errors persist for hours to days")
+reg("TRUTH_O_SD", 0.10, "assumption",
+    "independent truth O error (ln units): Weimer et al. 2016 JGR doi:10.1002/2016JA022691 needed a time-varying O "
+    "term beyond T_inf; size ~ lower end of the DE-2 day-mean O departures vs MSIS 2.1 (our replay, Nov 10)")
+reg("TRUTH_O_TAU", 86400.0, "assumption", "correlation time of the truth O error (s): 1 day")
+reg("TRUTH_ERR_SEED", 1000, "choice", "seed of the truth error field; orbit phase j uses seed + j")
