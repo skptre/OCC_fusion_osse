@@ -32,14 +32,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", type=int, default=2000)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--noleak", action="store_true", help="baseline hardware (gauge+o+drag); writes out/alt_grid_noleak")
     args = ap.parse_args()
-    OUT.mkdir(parents=True, exist_ok=True)
+    out = OUT.parent / "alt_grid_noleak" if args.noleak else OUT
+    extra = {"USE_SENSORS": ("gauge", "o", "drag")} if args.noleak else {}
+    out.mkdir(parents=True, exist_ok=True)
     for alt, drag in GRID.items():
-        path = OUT / f"{alt}km.csv"
+        path = out / f"{alt}km.csv"
         if path.exists():
             print(f"skip {alt} km (done)")
             continue
-        s = OSSE(alt_km=alt, **HARSH, **drag)
+        s = OSSE(alt_km=alt, **HARSH, **drag, **extra)
         r, sec = simt.run(s, args.runs, s.n_steps, seed=1, device=args.device, dtype=torch.float64)
         rows = []
         for k in r.metric_names:

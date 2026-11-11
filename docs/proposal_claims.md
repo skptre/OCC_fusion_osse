@@ -7,21 +7,39 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
 ## Framing (Relevance)
 - **The gap we fill.** OCC's own reference review (Bruinsma et al. 2023, Adv. Space Res., doi:10.1016/j.asr.2023.05.011):
   "In situ composition measurements have not been taken since the Dynamics Explorer 2 mission in the early 1980s";
+  !! QUOTE ONLY AS THEIR STATEMENT, never as our own absolute claim. Counterexamples a reviewer may know (checked
+  !! Nov 11): QB50 CubeSats 2017 carried FIPEX (our sensor! e.g. SpaceCube, ~3 months; VZLUSAT-1) and an INMS;
+  !! ExoCube (2015) / Dellingr INMS demo spectra; San Marco D/L (1988) carried a neutral mass spectrometer.
+  !! SAFE WORDING: "no sustained, calibrated in-situ composition record has been produced since DE-2 (Bruinsma
+  !! et al. 2023); CubeSat demonstrations since (QB50 FIPEX/INMS 2017, ExoCube) were short-lived." FIPEX's QB50
+  !! flights are a PLUS: flight heritage for our O sensor (TRL argument).
   density data sparse "for high solar activity, in particular below 400 km"; recommendation 3.2.2 asks for simultaneous
   mass density + composition (O, N2, O2, He) "to revise the composition information in the models"; 3.2.3 asks for
-  uninterrupted storm monitoring; 3.1.3/3.1.4 data assimilation with accurate covariances. Our suite does all of these
-  from a hosted payload.
+  uninterrupted storm monitoring; 3.1.3 data assimilation with accurate covariances (3.1.4 = indirect obs, NOT us).
+  [AUDIT FIX] 3.2.2 asks O2, N2, O, He "by means of mass spectrometers (e.g. DE2) or the Terahertz technique".
+  SAFE WORDING: "answers 3.2.2 for the two dominant species (O, N2) from a hosted payload, with continuous storm
+  coverage (3.2.3) and assimilation-ready products with calibrated covariances (3.1.3)." Never "does all of these".
+  Also add counterexample: 2012 Chinese satellite (~499 km) miniature magnetic-sector mass spectrometer (Eur. J. Mass
+  Spectrom. 2017, snippet only) -> say "...and experimental flights were short-lived". Never first / only / none.
 - **Model-error context.** Real MSIS storm error: NRLMSISE-00 storm std 14.5 / 21.6 / 27% at GOCE / CHAMP / GRACE
-  altitudes (Bruinsma & Laurens 2024). Our DE-2 comparison (real data): MSIS 2.1 storm-day density -26...+11%,
-  N2 -51...+15% (450 km cutoff). Datasets themselves disagree by up to 30% (Bruinsma et al. 2023 ASR 72:5476).
-- **Composition is the data type operational systems lack**; initialising thermosphere composition gives most of the
-  storm-forecast benefit (Chartier, Jackson & Mitchell 2013, JGR 118:7329).
-- **Measurand.** Mass density + O + N2 number density (He, O2 = model-based inference, labelled). Do NOT claim the
+  altitudes (Bruinsma & Laurens 2024; exact numbers re-check before quoting, journal 403 in audit). Our DE-2
+  comparison (real data): MSIS 2.1 storm-day density -26...+11%, N2 -51...+15% (450 km cutoff).
+  [AUDIT FIX] "datasets disagree by up to 30%" was mis-attributed (ASR 72:5476 = Bruinsma, Siemes, Emmert &
+  Mlynczak 2023, doi:10.1016/j.asr.2022.09.038, a different paper; 30% not found there). Use instead the review's
+  verified sentence: drag force "can vary by more than 30%" depending on the drag-coefficient model.
+- **Composition matters for storm forecasts** [AUDIT FIX: scope]: in a TIEGCM study of the Halloween 2003 storm,
+  initialising thermospheric composition captured nearly all the benefit of initialising the full thermosphere state
+  for storm-time IONOSPHERIC forecasts (>=10% better for ~18 h) (Chartier, Jackson & Mitchell 2013, JGR 118:7329).
+  Do NOT say it is about neutral density/drag.
+- **Measurand.** Mass density + O + N2 number density ONLY. He/O2/N inference was tested in Stage 6 and REJECTED
+  (gets worse); Bruinsma 3.2.2 asks O, N2, O2, He -> we cover the two dominant species. [AUDIT FIX] "~90% of mass"
+  is NOT tested: He can reach ~half by number at 450 km at solar minimum (sources.md). State "dominant species at
+  250-400 km" only, or compute the mass fraction from MSIS before quoting a %. He/O2 = Phase 2 hardware. Do NOT claim the
   pressure or drag-acceleration rows ("drag or pressure as an indirect route" caps Relevance at 3).
 - **Altitude range.** Declare from the C6 grid (pending). Composition 250-400 km (450 km with He caveat); density
   higher. Outgassing breaks N2 above ~400 km at solar minimum (L8), which supports the cap.
 
-## Performance numbers (PRELIM, harsh truth = NRLMSISE-00 + calibrated driver errors, median MAE)
+## Performance numbers (SUPERSEDED pre-freeze history - do NOT quote; use HEADLINE / base_* sections)
 - Model (prior) error on this truth: density 15.7% quiet / 23.9% storm; N2 20% / 29% / 19.6% recovery.
 - Ours, 3 sensors, S_O +-16% consider: density 6.2 / 8.2 / 10.7% (2-3x better than model, 2x inside 20%).
 - Ours, ground S_O calibration (+-5%) + in-flight estimate + daily leak: density 3.4 / 3.5 / 4.7%;
@@ -29,20 +47,23 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
 - Without leak AND without S_O calibration, recovery N2 (30%) is WORSE than the model (19.6%): leak + S_O calibration
   are required for "composition beats the model in every window". State them as part of the design, not extras.
 - Report accuracy = bias, precision = 1-sigma scatter of 30 s errors, resolution = 30 s, plus MAE p50/p90 (headline.py).
-- Real-time numbers from 2000 runs; smoothed ground product from 100 runs (memory limit); say so.
-- **Ground RTS smoother** improves density ~20-30% in quiet/recovery (Phase B tests). Ground product = smoothed.
+- [AUDIT FIX] Smoother lines deleted: the RTS smoother is NOT in the frozen architecture (real-time product only).
 
 ## Truth ladder (how we tested; answers "your truth is your model")
 - Three truths: NRLMSISE-00 (independent empirical model); MSIS + effective-driver errors calibrated to published
   model-vs-data error (Sutton 2018; Licata et al. 2022 MSIS-UQ; Bruinsma & Laurens 2024; storm-window scatter set to
-  0.20 at 300 km), plus an independent O error (Weimer et al. 2016); and real DE-2 NACS composition (1981-83).
+  0.20 at 300 km), plus an independent O error (OUR ASSUMPTION, 10%, 1-day; Weimer et al. 2016 supports only the
+  temperature-type error, not the O term); and real DE-2 NACS composition (1981-83).
 - OSSE best practice: truth errors must match real model-vs-data statistics (Hoffman & Atlas 2016, BAMS 97:1601).
   Ours do by construction; the prior's error on the harsh truth reproduces the published storm error.
 - DTM2020 not used (CNES academic/non-commercial licence).
 - DE-2 protocol: Jul 13-14 1982 development window used before the freeze; Sep 3-10 1982 (Kp 8.7), Mar 1-2 1982,
-  Feb 4-5 1983 held out and run once. NACS has a 25% absolute calibration error (PI statement; Carignan et al. 1981), so
-  the replay tests tracking of real departures from MSIS, not the absolute benchmark. Circularity: DE-2 helped build
-  MSIS-86, but MSIS 2.x tuned its thermosphere to 1986-2005 data (Emmert et al. 2021), and circularity favours the prior.
+  Feb 4-5 1983 held out. [AUDIT FIX wording] "Run once; a bookkeeping bug found in that run was fixed generically
+  (circular OSSE unchanged) and the held-out days were rerun once." NACS has a 25% absolute calibration error (PI
+  statement in the NSSDC NACS data documentation; instrument: Carignan et al. 1981), so the replay tests tracking of
+  real departures from MSIS, not the absolute benchmark. Circularity: DE-2 helped build MSIS-86; MSIS 2.x revised the
+  thermosphere (Emmert et al. 2021: lower N2/O vs NRLMSISE-00; the "1986-2005" detail UNVERIFIED - soften to
+  "re-tuned with later data" unless read); circularity favours the prior.
 
 ## DE-2 development window (Jul 13-14 1982, real NACS truth, 280-450 km; PRELIM, dev = used for design)
 - Architecture (ground S_O cal 5% + estimate + leak + altitude-slope states): density model 23% / 48% -> ours 4.1% /
@@ -88,7 +109,9 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
   ONE confirming headline run. Phase A sweeps already bracket them, so no re-tuning; frozen filter unchanged.
   Phase A first pass: gauge noise 0.5-5% and gas factors barely matter; gauge drift <= ~2%/day fine.
 
-## HEADLINE RESULTS (freeze-v1, 2000 runs, Colab Nov 11; out/headline/*.csv) - quotable
+## HEADLINE RESULTS - WITH LEAK = PHASE 2 CONFIGURATION (freeze-v1, 2000 runs, Colab Nov 11; out/headline/*.csv)
+!! [AUDIT CRIT] These are the WITH-LEAK cases, NOT the baseline. Baseline = base_* (running on Colab Nov 11).
+!! Quote these only as "with the Phase 2 leak". Ratios corrected: density 3.2-6.4x, O 1.3-2.5x, N2 1.35-2.0x.
 Harsh truth (NRLMSISE-00 + calibrated driver errors), real-time filter; accuracy = median bias, precision = median 1-sigma
 scatter of 30 s errors, MAE p50 / p90; model = forecast-driven MSIS 2.1 on the same runs. Quiet / storm / recovery:
 - DENSITY: accuracy +0.1 / +1.1 / +1.8%; precision 1.7 / 2.3 / 2.6%; MAE 3.2 / 3.6 / 4.7% (p90 7.4 / 8.0 / 11.4%);
@@ -115,6 +138,10 @@ Baseline hardware (gauge + FIPEX + drag, no leak), prior = forecast/real-driver 
   remaining error is one absolute-calibration number, removable by commissioning cross-calibration against an
   accelerometer mission (cal/val plan) or the Phase 2 leak. With leak: 5.4 / 5.3 / 7.5%. Meets the 20% benchmark
   without any external calibration. (GRACE-FO O/N2 "truth" is MSIS-scaled, so only density is a real test there.)
+  [AUDIT] Caveat: accelerometer-density datasets themselves carry calibration spreads comparable to our bias, so
+  "removable" means "reducible to the reference's own absolute level". Save the replay outputs to out/ as evidence.
+  Citation: ESA Swarm DISC TOLEOS GF_OPER_DNS1ACC_2_ v0003 (processing: Siemes et al. 2023, JSWSC 13:16,
+  doi:10.1051/swsc/2023014) + access date; v0003 = that processing UNVERIFIED.
 - DE-2 NACS 1982-83 (real in-situ density + composition, elliptical 280-450 km, NACS absolute cal ~25%):
   DENSITY better than the model on ALL 12 test days: Sep 1982 (8 days incl. storm) 7.0/6.4/11.2/13.4/39.6/39.8/
   39.3/21.8 -> 5.4/5.2/5.7/6.4/10.8/8.2/6.8/7.8%; Mar 1982 20.3/23.6 -> 6.9/6.0%; Feb 1983 11.3/16.4 -> 6.9/11.1%.
@@ -166,14 +193,15 @@ runs before quoting as statistics.
 ## Honest uncertainty
 - Gate false-alarm rate matched chi-square exactly (1.0e-4 at p = 1e-4) in clean runs: evidence the innovations are
   correctly scaled.
-- Density and O error bars honest (z ~1) with S_O consider analysis; N2 ~2x overconfident, so a calibration factor is
-  measured on the OSSE and verified on DE-2 (PRELIM; product-z run pending for the final architecture).
+- [AUDIT FIX] Error bars: filter is overconfident; product calibration factors x2.0 (density) / x2.8 (O) / x3.4 (N2)
+  measured on the OSSE; on real data NEES 18-79 => still overconfident; real-data error-bar calibration = Phase 1.
+  (Old "z ~1 honest" line deleted.) The chi-square false-alarm match has no saved output file: cite only if re-run.
 - Root cause of residual overconfidence (labelled HYPOTHESIS): unmodelled within-orbit (latitude/local-time) structure
   of model error; Phase 2 adds latitude-dependent error states. Drift was tested and ruled out as the cause.
 - S_O handled by Schmidt consider analysis (Schmidt 1966; Bierman 1977) or ground-anchored estimation.
 
 ## Architecture / design choices (for the design-rationale table)
-- 15-state Gauss-Markov EKF: per-gas model gaps (random walk, prior 20% from published error), common + per-gas AR(1)
+- 18-state Gauss-Markov EKF (14 active: N2 local-time harmonics off) incl. per-gas altitude slopes: per-gas model gaps (random walk, prior 20% from published error), common + per-gas AR(1)
   wiggles, gauge gain, FIPEX gain, C_D bias, S_O; ram-chamber gauge model n_c = n V cos(theta) sqrt(2 pi m / k T_c)
   (Bird 1994; confirmed by Grabe et al. 2010); Joseph-form updates; NIS gate 15.1; per-orbit drag.
 - TESTED AND REJECTED (say so, with reason): adaptive/Kp-scheduled Q (bounded by an oracle test: no recovery gain);
@@ -184,14 +212,17 @@ runs before quoting as statistics.
   the method was stress-tested, not tuned to look good.
 
 ## Calibration / validation plan (Performance scores this)
-- Ground: gauge N2/Ar/He calibration; **same-beam gauge + FIPEX O-beam test fixing the S_O/f ratio** (beam flux error
-  cancels; with the leak-anchored gauge gain this is as good as knowing S_O; algebra in findings doc section M);
-  pre-conditioning to O exposure (Cross et al. 1995).
-- Commissioning: leak reading at switch-on; >= 2 weeks; shutter/wake zero checks (L8); host yaw manoeuvres to
-  calibrate C_D accommodation (March et al. 2021; OCC allows host manoeuvre requirements).
-- In flight: daily argon-leak gauge calibration (novel for a cold cathode gauge; MAVEN NGIMS heritage), per-orbit drag,
-  S_O tracking, FIPEX-vs-gauge drift tracking.
-- Validation: OSSE truth ladder; DE-2 replay; GRACE-FO/Swarm conjunctions (validation only).
+[AUDIT FIX: rewritten for the NO-LEAK baseline]
+- Ground (Phase 1): gauge N2/Ar/He calibration; atomic-O beam calibration of S_O to <=5% (required; INFICON has no
+  AO data) or the same-beam gauge + FIPEX test fixing the S_O/f ratio (beam flux error cancels; algebra findings doc
+  section M); pre-conditioning to O exposure (Cross et al. 1995); FIPEX gain/drift characterisation.
+- Commissioning: >= 2 weeks; discard ~30 min after each gauge power-on (INFICON clean-up transient); shutter/wake zero
+  checks (L8); cross-calibration against an accelerometer-density mission (GRACE-FO/Swarm conjunctions) to set the
+  absolute level; host yaw manoeuvres to calibrate C_D accommodation (March et al. 2021; OCC allows host manoeuvres).
+- In flight: gauge gain anchored by per-orbit drag + ground S_O; FIPEX cross-checked against gauge every 30 s and
+  drag every orbit; S_O and C_D tracked as states.
+- Phase 2: calibrated argon-leak gauge calibrator (see HARDWARE section) -> density ~5%.
+- Validation: OSSE truth ladder; DE-2 replay; GRACE-FO held-out storm; Swarm/GRACE-FO conjunctions in flight.
 
 ## Requirements to state (FINAL Phase A, out/phase_a3/A1-A6.csv, 500 runs, harsh truth, frozen architecture
 ## WITH leak = register default; no-leak baseline row: density 5.2 / 5.8 / 6.8%). Density / O / N2 MAE p50, q/s/r.
@@ -221,20 +252,30 @@ Baseline (A1, 2000 runs): density 3.2/3.6/4.7, O 5.6/9.8/10.6, N2 10.3/15.5/14.4
 - Gauge gain prior: INFICON says 30% is the MAXIMUM envelope (all sources, not per-unit calibrated); we used 30%
   as 1-sigma => conservative by ~3x; gain is estimated in flight anyway.
 
+## FIPEX data sheet (Univ. Stuttgart IRS / HEFDiG, single-sensor, received Nov 11 2026)
+- Sensor heated to ~1000 K; input 12-48 V; power < 4 W sensor (VLEO steady state) + < 2 W electronics = < 6 W total
+  (more during heat-up; sequenceable).
+- Mass: sensor head with holder 70 x 31 x 14 mm, ~20 g; electronics PCB 90 x 90 x 25 mm, ~70 g (~90 g total).
+- Data: 12-byte word at up to 100 Hz (adjustable) = 1.2 kB/s max; we need 1 per 30 s (averaged) -> tiny downlink.
+- Interface: custom cable to electronics; RS485 to host (custom possible).
+- NOT in the sheet: accuracy, drift, noise, atomic-O sensitivity -> our O_GAIN_SD 30% (IRS call Nov 9) and FIPEX
+  drift 3%/day stay labelled ASSUMPTIONS; Phase A shows FIPEX drift drives O accuracy -> Phase 1 characterisation.
+
 ## Vendor facts for the proposal (INFICON MAG084 email Nov 11 2026; attachments = MAG084/VGC094 manual pages)
 - Accuracy 30% of reading = max envelope; gauges not individually calibrated (population characteristic curve).
 - Repeatability 5% short-term (pressure cycling); long-term no major drift observed (not statistical).
 - Linear below 1e-5 mbar; continuous output, no jumps; analog output (CP300/PE300 boards) for fastest unfiltered
   signal; controller 100 Hz internal, 10 Hz display.
 - Temperature: via thermal transpiration (sqrt(T)) + wall outgassing; no self-heating; ignition "clean-up"
-  pressure transient after power-on => ops: discard first ~30 min after power-on (C7 analysis basis: +-20 K wall
-  swing -> ~+-1.7% gain, inside the swept gauge-noise/drift range).
+  pressure transient after power-on => ops: discard first ~30 min after power-on (C7 analysis basis, AUDIT-corrected:
+  sqrt(T) at 300 K = 1.7% per 10 K, so a +-20 K wall swing -> ~+-3.3% gain; inside the swept 5% gauge-noise case;
+  thermal control holds the swing smaller).
 - Pumping speed 0.01-0.1 L/s (N2), changes with wear => small vs ram-chamber orifice conductance (check with CAD).
 - Stray magnetic field < 0.05 mT beyond ~4 cm (shielded, GEMINI design) => host magnetometer/torquer
   compatibility point.
 - Price: 15% university discount; volume pricing on request.
 
-## C7 stress (analysis, not simulated - decided Nov 11): wall temperature (+-1.7%/orbit via sqrt(T)), pointing
+## C7 stress (analysis, not simulated - decided Nov 11): wall temperature (+-3.3% for +-20 K via sqrt(T)), pointing
 ## (10 deg -> ~1.5% via cos), filter mis-tuning (Q choice tested on 2 truths) all sit inside the Phase A swept
 ## ranges of gauge noise/drift and the "filter fooled" cases; stated as analysis in the proposal.
 - Host asks: single-frequency GPS (dual = upside), attitude knowledge, geometry model, optional yaw manoeuvres.
@@ -247,19 +288,20 @@ Baseline (A1, 2000 runs): density 3.2/3.6/4.7, O 5.6/9.8/10.6, N2 10.3/15.5/14.4
 - MAG084 magnet dipole = hosting risk (mech team to measure; mitigation and excluded hosts).
 
 ## Known issues to name with mitigations (K1-K11, findings doc R1)
-- S_O never measured (bracket 0.51 cross-section to 0.71 full recombination; Laher & Gilmore 1990; Newton & Horowitz
+- S_O not measured for the MAG084 (bracket 0.51 cross-section to 0.71 full recombination; Laher & Gilmore 1990; Newton & Horowitz
   1969); recombination products; gauge nonlinearity and mode jumps; ignition delay (60 s at 1e-8 mbar); discharge
-  pumping; leak path; same-beam relative only; wall temperature (1.7%/10 K) and pointing (1.5%/10 deg); background;
+  pumping; same-beam relative only; wall temperature (1.7%/10 K) and pointing (1.5%/10 deg); background;
   no MAG084 drift data; FIPEX drift and n^0.35 response (Eberhart et al. 2019).
 
 ## In-flight drift/sensitivity tracking (answer to "what about drift / S_O / 1 year")
 - Every headline number already includes, in the truth: FIPEX drift 3%/day one-sided, gauge drift 2%/day, gains
   +-30% unknown, S_O drawn per run (5% calibrated; 16% bracket in the uncalibrated case), C_D bias + drift + O-physics,
-  per-orbit drag noise 15%, sensor outages, harsh model error. The filter tracks gauge gain (re-anchored daily by the
-  leak), FIPEX gain (cross-checked vs gauge each 30 s and drag each orbit), S_O and C_D as states.
-- Wording (draft): "Sensor gains are tracked in flight: the gauge is re-anchored daily by a calibrated leak and FIPEX
-  is cross-checked against the gauge and drag every orbit. Gain errors reach steady state within ~2 days under 3%/day
-  drift (self-calibration figure). Long-term validity rests on the leak; a 1-year simulation is planned (Phase 2)."
+  per-orbit drag noise 15%, sensor outages, harsh model error. The filter tracks gauge gain (anchored by per-orbit
+  drag + ground S_O in the no-leak baseline), FIPEX gain (cross-checked vs gauge each 30 s and drag each orbit), S_O
+  and C_D as states.
+- Wording (draft, AUDIT-fixed for no-leak): "Sensor gains are tracked in flight: the gauge gain is anchored by host
+  drag every orbit and by the ground atomic-O calibration, and FIPEX is cross-checked against the gauge and drag.
+  A 1-year simulation is planned (Phase 2); the Phase 2 leak adds a direct gauge re-anchor."
   -> CHECKED Nov 11 (harsh, recorded run 0): gauge gain error stays ~0-6% throughout (leak run), but the FIPEX gain
   error climbs to ~27% during the storm, i.e. the filter partly attributes the storm's O change to FIPEX gain. So do
   NOT claim "gain errors reach steady state within ~2 days" for FIPEX. Honest wording: gauge gain tracked to a few %;
@@ -272,5 +314,12 @@ Baseline (A1, 2000 runs): density 3.2/3.6/4.7, O 5.6/9.8/10.6, N2 10.3/15.5/14.4
 
 ## Caveats that must appear
 - All OSSE numbers: 300 km, 51.6 deg, one storm (May 2024), 5 days, high solar activity.
-- One-year drift not yet simulated (planned Stage 7).
+- One-year drift not yet simulated (planned Phase 2).
+- [AUDIT] Unlabelled assumptions to label when used: INFICON 30% envelope read as ~3-sigma; C9 "best estimate" drift
+  values (optimistic assumption, not vendor); GRACE-FO bias removable; O+N2 mass fraction; 22 us EKF timing;
+  outgassing negligible after ~1 day; independent O error; FIPEX "<=12%" requirement (Phase A read-off, not vendor).
+- [AUDIT] Unverified citations (verify or drop before use): Newton & Horowitz 1969, Schmidt 1966 pages, MKS gas
+  factors page, NIST SRD 107, Grabe 2010, Bird 1994 section, Lowe & D'Amico 2026, Licata 2022 content, LADEE NMS
+  calibration-gas heritage (NGIMS has a sealed noble-gas reservoir, not a valved leak). Full audit:
+  docs/claims_audit_2026-11-11.md.
 - Outlier handling assumes median-of-30 preprocessing.
