@@ -8,7 +8,6 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def _fill(a):
-    """Fill uncovered (NaN) bins from the last covered bin; they never enter sensor updates or scoring."""
     a = np.array(a, dtype=float, copy=True)
     if a.ndim == 1:
         a = a[:, None]
@@ -31,6 +30,7 @@ class DE2Replay(OSSE):
     def _tables(self, cache_dir):
         d = np.load(REPO / "data" / "de2" / f"{self.window}.npz")
         self.de2 = d
+        self.alt_km = float(np.nanmean(d["alt"][d["cover"]]))
         self.cover_np = d["cover"][None, :]
         self.truth_wiggles = False
         self.n_days = int(d["n_days"])
@@ -42,6 +42,8 @@ class DE2Replay(OSSE):
         return _fill(self.de2["lst"])[:, 0][None]
 
     def _windows(self):
+        if self.window.startswith("gracefo"):
+            return {w: self.get(f"{w.upper()}_HOURS") for w in ("quiet", "storm", "recovery")}
         return {f"day{d + 1}": (24.0 * d, 24.0 * (d + 1)) for d in range(self.n_days)}
     
     def _altitude(self):
