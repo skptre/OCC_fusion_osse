@@ -109,6 +109,28 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
   ONE confirming headline run. Phase A sweeps already bracket them, so no re-tuning; frozen filter unchanged.
   Phase A first pass: gauge noise 0.5-5% and gas factors barely matter; gauge drift <= ~2%/day fine.
 
+## *** BASELINE HEADLINE (NO LEAK) - THE LEAD NUMBERS *** (freeze-v1, 2000 runs, Colab Nov 11; out/headline/base_*.csv)
+Hardware = gauge + FIPEX + host GPS drag, ground S_O cal 5%. Harsh truth (NRLMSISE-00 + calibrated driver errors).
+Quiet / storm / recovery; accuracy = median bias, precision = median 1-sigma scatter of 30 s errors, MAE p50 (p90).
+- DENSITY: accuracy -3.7 / -3.0 / -4.1%; precision 1.6 / 2.2 / 2.1%; MAE 5.6 / 5.8 / 6.7% (p90 12.5 / 13.1 / 14.1%);
+  model 15.3 / 23.0 / 14.9%. => meets 20% accuracy / 10% precision / 30 s at the median AND at p90; 2.2-4.0x better
+  than the model (4.0x in the storm).
+- O: MAE 5.7 / 11.2 / 9.7% (p90 14.4 / 29.4 / 23.5%); model 14.2 / 17.2 / 13.9% => 1.4-2.5x better at the median.
+- N2: MAE 13.8 / 17.3 / 19.0% (p90 27 / 43 / 36%); model 20.4 / 29.5 / 19.3% => 1.5x / 1.7x better quiet / storm;
+  RECOVERY TIES THE MODEL (19.0 vs 19.3). N2 bias -13 / +3 / -15%. Say so; Phase 2 leak fixes it (leak: 14.4%).
+- Robustness across truths (density MAE): driver-error 5.1 / 5.6 / 6.2%; NRLMSISE-00 5.4 / 5.7 / 6.2%; identical twin
+  4.7 / 5.0 / 5.4%. => the result does not depend on which truth.
+- C9 optimistic sensor values (FIPEX 1%/day, gauge 0.5%/day, C_D 5%; ASSUMPTION, not vendor): density 3.7 / 3.8 /
+  3.9%; O 5.1 / 7.6 / 8.4%; N2 12.6 / 12.2 / 14.3%.
+- Ablation (no leak): gauge + drag without FIPEX: density 6.0 / 6.4 / 6.7%, O 9.0 / 14.4 / 11.7%, N2 18.2 / 16.0 /
+  15.5%. => FIPEX's contribution is O (quiet 9.0 -> 5.7%, storm 14.4 -> 11.2%) and quiet N2 (18.2 -> 13.8%);
+  HONEST: storm/recovery N2 is slightly BETTER without FIPEX (16.0 / 15.5 vs 17.3 / 19.0) - the FIPEX gain tail
+  leaks into N2. Density barely depends on FIPEX. Drag alone ~ model (harsh_drag_only 13.6 / 17.0 / 15.3%).
+- NEES p50 5.8, p90 78.5; tail from gap_He (p90 78; He not a product) and o_gain (p90 10). Without FIPEX NEES p90 5.5.
+- Wording: "On an independent, storm-calibrated truth, the baseline suite measures density to 5.6-6.7% (median;
+  13-14% at the 90th percentile) every 30 s, 2-4x better than the operational model, and atomic oxygen 1.4-2.5x
+  better; with the Phase 2 calibrated leak, density reaches 3-5%."
+
 ## HEADLINE RESULTS - WITH LEAK = PHASE 2 CONFIGURATION (freeze-v1, 2000 runs, Colab Nov 11; out/headline/*.csv)
 !! [AUDIT CRIT] These are the WITH-LEAK cases, NOT the baseline. Baseline = base_* (running on Colab Nov 11).
 !! Quote these only as "with the Phase 2 leak". Ratios corrected: density 3.2-6.4x, O 1.3-2.5x, N2 1.35-2.0x.
