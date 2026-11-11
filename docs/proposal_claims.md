@@ -44,6 +44,18 @@ docs/research_findings_2026-11-10.md, docs/status_and_plan.md §7a, docs/sources
   the replay tests tracking of real departures from MSIS, not the absolute benchmark. Circularity: DE-2 helped build
   MSIS-86, but MSIS 2.x tuned its thermosphere to 1986-2005 data (Emmert et al. 2021), and circularity favours the prior.
 
+## DE-2 development window (Jul 13-14 1982, real NACS truth, 280-450 km; PRELIM, dev = used for design)
+- Architecture (ground S_O cal 5% + estimate + leak + altitude-slope states): density model 23% / 48% -> ours 4.1% /
+  3.5%; N2 model 71% / 140% -> ours 24% / 45% (3x better); O model 12% / 32% -> ours 17% / 15% (worse day 1, 2x better
+  day 2). NEES ~22 (error bars need calibration on real data).
+- Finding that drove a design change: real MSIS N2 error grows with altitude (ln NACS/MSIS -0.32 at 300 km -> -0.95
+  at 400+ km; O flat) = temperature-type model error (Weimer et al. 2016). Added per-gas altitude-slope states:
+  inert on a circular host (bit-identical OSSE), essential on eccentric orbits / real data.
+- Framing: DE-2 is data-starved (minutes per day below 450 km; 3.6-11% of 30 s bins covered) vs continuous hosted
+  sampling; the O/N2 split needs long sampling, so DE-2 is a harsher information regime than our design. "That
+  scarcity of composition data is the gap this suite fills."
+- Rejected in dev: N2 prior 35% alone (no change: information, not prior, was the limit).
+
 ## Honest uncertainty
 - Gate false-alarm rate matched chi-square exactly (1.0e-4 at p = 1e-4) in clean runs: evidence the innovations are
   correctly scaled.
