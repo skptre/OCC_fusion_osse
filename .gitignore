@@ -26,5 +26,3 @@ runs/
 Thumbs.db
 .vscode/
 .idea/
-
-!data/de2/*.npz
