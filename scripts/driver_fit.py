@@ -44,6 +44,10 @@ REPR_SD = 0.05                      # choice: model-representation floor (2-knob
 FIRST_SD = (0.3, 1.0)               # choice: prior sd on (ln F10.7 scale, ln ap scale) for the first block
 WALK_SD = (0.1, 0.7)                # choice: allowed change block-to-block (truth driver errors: tau 12 h)
 BOUNDS = np.array([(-1.0, 1.0), (-3.0, 3.0)])
+F107_RANGE = (60.0, 400.0)          # physical cap on the EFFECTIVE solar index (sfu), fit and forecast
+AP_MAX = 400.0                      # top of the ap scale; effective ap never exceeds it
+DAMP_TAU_H = 12.0                   # choice: forecast correction decays exp(-lead/12 h) = driver-error correlation
+                                    # time of the calibrated truth (Bruinsma & Laurens 2024 scatter calibration)
 FD = 0.01
 N_GN = 8
 WIN = {"quiet": value("QUIET_HOURS"), "storm": value("STORM_HOURS"), "recovery": value("RECOVERY_HOURS"),
@@ -85,8 +89,10 @@ def drivers(s, phase, steps):
 def model(d, idx, alt, a, b):
     """NRLMSIS 2.1 on forecast drivers, F10.7 (daily + 81-day) scaled by exp(a), all ap columns by exp(b)."""
     a, b = np.broadcast_to(a, idx.shape), np.broadcast_to(b, idx.shape)
-    return run_msis(d["dates"][idx], d["lat"][idx], d["lon"][idx], alt, d["f107"][idx] * np.exp(a),
-                    value("PRIOR_F107A") * np.exp(a), d["ap_prior"][idx] * np.exp(b)[:, None], value("MSIS_VERSION"))
+    f = np.clip(d["f107"][idx] * np.exp(a), *F107_RANGE)
+    fa = np.clip(value("PRIOR_F107A") * np.exp(a), *F107_RANGE)
+    ap = np.clip(d["ap_prior"][idx] * np.exp(b)[:, None], 0.0, AP_MAX)
+    return run_msis(d["dates"][idx], d["lat"][idx], d["lon"][idx], alt, f, fa, ap, value("MSIS_VERSION"))
 
 
 def truth(s, d, idx, alt):
@@ -191,10 +197,10 @@ def one_run(s, ser, r, steps, hours):
                          "ln_f107_scale": theta[j, 0], "ln_ap_scale": theta[j, 1], "sd_ln_f107": sd[j, 0],
                          "sd_ln_ap": sd[j, 1],
                          "f107_prior": d["f107"][idx].mean(),
-                         "f107_fit": (d["f107"][idx] * np.exp(theta[j, 0])).mean(),
+                         "f107_fit": np.clip(d["f107"][idx] * np.exp(theta[j, 0]), *F107_RANGE).mean(),
                          "f107_truth": (d["f107"][idx] * np.exp(d["e_f"][idx])).mean(),
                          "ap_prior": d["ap_prior"][idx, 1].mean(),
-                         "ap_fit": (d["ap_prior"][idx, 1] * np.exp(theta[j, 1])).mean(),
+                         "ap_fit": np.clip(d["ap_prior"][idx, 1] * np.exp(theta[j, 1]), 0.0, AP_MAX).mean(),
                          "ap_truth": (d["ap_truth"][idx, 1] * np.exp(d["e_ap"][idx])).mean()})
 
     # satellite altitude, judged against the run's own truth (incl. small-scale wiggles), like the headline
@@ -219,13 +225,14 @@ def one_run(s, ser, r, steps, hours):
             col[(z, w, "O")] = (mae(pz[:, O], tz[:, O], hours, w), mae(cz[:, O], tz[:, O], hours, w))
             col[(z, w, "N2")] = (mae(pz[:, N2], tz[:, N2], hours, w), mae(cz[:, N2], tz[:, N2], hours, w))
 
-    # (a2) forecast: block j+L/3 evaluated with the correction fitted on block j (persistence of the correction)
+    # (a2) forecast: block j+L/3 evaluated with the correction fitted on block j, damped towards zero with lead
     fc = {}
     for L in LEADS_H:
         sh = int(round(L / BLOCK_H))
         ok = blk >= sh
         lag = np.clip(blk - sh, 0, None)
-        cl = model(d, all_idx, alt, theta[lag, 0], theta[lag, 1])
+        damp = math.exp(-L / DAMP_TAU_H)
+        cl = model(d, all_idx, alt, damp * theta[lag, 0], damp * theta[lag, 1])
         for w in WIN:
             for q, ep, ec, tq in (("rho", rho_of(prior0), rho_of(cl), rho_of(tab0)),
                                   ("O", prior0[:, O], cl[:, O], tab0[:, O]),
@@ -282,8 +289,8 @@ def figures(series0, col, fc, sp, sat, alt_sat):
     plt.close(fig)
     print("wrote", OUT / "fig_driver_fit.png")
 
-    fig, axes = plt.subplots(2, 2, figsize=(10, 7.5))
-    for ax, q, title in ((axes[0, 0], "rho", "Density"), (axes[0, 1], "O", "Atomic O")):
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4))
+    for ax, q, title in ((axes[0], "rho", "Density"), (axes[1], "O", "Atomic O")):
         for w, ls in (("storm", "-"), ("all", "--")):
             ax.plot([100 * col[(z, w, q)][0] for z in ALTS], ALTS, "o" + ls, color=C_MODEL, ms=4,
                     label=f"Model, forecast drivers ({w})")
@@ -293,8 +300,8 @@ def figures(series0, col, fc, sp, sat, alt_sat):
         ax.set_title(f"{title}: error above/below the track")
         ax.set_xlabel("Mean abs. error (%)")
         ax.set_ylabel("Altitude (km)")
-    axes[0, 0].legend(frameon=False, fontsize=7)
-    ax = axes[1, 0]
+    axes[0].legend(frameon=False, fontsize=7)
+    ax = axes[2]
     for q, mk in (("rho", "o"), ("O", "s")):
         ax.plot(LEADS_H, [100 * fc[(L, "all", q)][0] for L in LEADS_H], mk + "--", color=C_MODEL,
                 label=f"Forecast drivers ({q})")
@@ -303,16 +310,8 @@ def figures(series0, col, fc, sp, sat, alt_sat):
     ax.set_xticks(LEADS_H)
     ax.set_xlabel("Forecast lead (h)")
     ax.set_ylabel("Mean abs. error at satellite (%)")
-    ax.set_title("Forecast skill")
+    ax.set_title(f"Forecast skill (correction damped, {DAMP_TAU_H:g} h)")
     ax.legend(frameon=False, fontsize=7)
-    ax = axes[1, 1]
-    x = np.arange(len(OTHER))
-    ax.bar(x - 0.2, [100 * sp[("all", g)][0] for g in OTHER], 0.4, color=C_MODEL, label="Forecast drivers")
-    ax.bar(x + 0.2, [100 * sp[("all", g)][1] for g in OTHER], 0.4, color=C_FIT, label="Fitted drivers")
-    ax.set_xticks(x, OTHER)
-    ax.set_ylabel("Mean abs. error (%)")
-    ax.set_title("Unmeasured gases (model-based inference)")
-    ax.legend(frameon=False, fontsize=8)
     fig.tight_layout()
     fig.savefig(OUT / "fig_model_improvement.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -342,7 +341,7 @@ def main():
           [[z, w, q, *v] for (z, w, q), v in col.items()])
     write("forecast.csv", ["lead_h", "window", "quantity", "model_forecast", "model_plus_last_fit"],
           [[L, w, q, *v] for (L, w, q), v in fc.items()])
-    write("species.csv", ["window", "species", "model_forecast", "model_fitted"],
+    write("species_tested_not_claimed.csv", ["window", "species", "model_forecast", "model_fitted"],
           [[w, g, *v] for (w, g), v in sp.items()])
 
     print(f"\n=== {tag} (mean abs. error, %) ===")
@@ -358,7 +357,7 @@ def main():
     for L in LEADS_H:
         print(f"  lead {L:>2} h: {100*fc[(L,'all','rho')][0]:5.1f} -> {100*fc[(L,'all','rho')][1]:5.1f}   |   "
               f"{100*fc[(L,'all','O')][0]:5.1f} -> {100*fc[(L,'all','O')][1]:5.1f}")
-    print("Unmeasured gases at satellite, all windows: forecast-model -> fitted-model")
+    print("Unmeasured gases at satellite, all windows (TESTED, NOT CLAIMED): forecast-model -> fitted-model")
     for g in OTHER:
         print(f"  {g:<3}: {100*sp[('all',g)][0]:5.1f} -> {100*sp[('all',g)][1]:5.1f}")
 
