@@ -23,8 +23,7 @@ def main():
     s = DE2Replay(args.window, prior=args.prior, **over)
     r, sec = simt.run(s, args.runs, s.n_steps, seed=1, dtype=torch.float64)
     print(f"{args.window}, prior MSIS {args.prior}, {args.runs} runs ({sec:.0f} s); MAE p50 (bias p50)")
-    for d in range(s.n_days):
-        w = f"day{d + 1}"
+    for w in s._windows():
         cells = []
         for q in ("rho", "O", "N2"):
             med = lambda key: float(np.nanmedian(r[f"{w}_{q}_{key}"].numpy()))
