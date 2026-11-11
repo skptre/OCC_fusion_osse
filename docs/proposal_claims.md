@@ -163,7 +163,11 @@ scatter of 30 s errors, MAE p50 / p90; model = forecast-driven MSIS 2.1 on the s
 - Wording (draft): "Sensor gains are tracked in flight: the gauge is re-anchored daily by a calibrated leak and FIPEX
   is cross-checked against the gauge and drag every orbit. Gain errors reach steady state within ~2 days under 3%/day
   drift (self-calibration figure). Long-term validity rests on the leak; a 1-year simulation is planned (Phase 2)."
-  -> CHECK the steady-state claim against the recorded headline runs before using it.
+  -> CHECKED Nov 11 (harsh, recorded run 0): gauge gain error stays ~0-6% throughout (leak run), but the FIPEX gain
+  error climbs to ~27% during the storm, i.e. the filter partly attributes the storm's O change to FIPEX gain. So do
+  NOT claim "gain errors reach steady state within ~2 days" for FIPEX. Honest wording: gauge gain tracked to a few %;
+  FIPEX gain tracking degrades in storms (this is the o_gain NEES tail); Phase 2 fix: FIPEX gain/drift robustness.
+  Verify on base_harsh series and more runs before final wording.
 - NOT covered (state as limits): 1-year accumulation not simulated; S_O time variation (conditioning, Cross et al.
   1995); FIPEX n^0.35 response; gauge nonlinearity/jumps beyond the gate; wall temperature / pointing (C7 pending).
 - Wording rule (user, Nov 11): every sentence backed by a test, a citation or a labelled assumption; nothing implied
