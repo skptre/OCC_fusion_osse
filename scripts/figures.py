@@ -48,7 +48,7 @@ def save(fig, name):
 
 def fig_accuracy():
     case, m = first("base_harsh", "harsh")
-    leak = load("harsh")
+    leak = None  # Phase 2 leak shown in text only (baseline hardware has no leak)
     if m is None:
         return print("skip accuracy: no headline csv")
     fig, axes = plt.subplots(1, 3, figsize=(10, 3.4), sharey=True)
@@ -76,7 +76,7 @@ def fig_accuracy():
 
 def fig_ablation():
     rows = [("Host drag only", "harsh_drag_only"), ("Gauge + drag", "base_gauge_drag"),
-            ("Full suite (baseline)", "base_harsh"), ("Full suite + leak", "harsh")]
+            ("Full suite (baseline)", "base_harsh")]
     data = [(lab, load(c)) for lab, c in rows if load(c)]
     if len(data) < 2:
         return print("skip ablation: missing cases")
@@ -90,7 +90,7 @@ def fig_ablation():
         ax.axvline(model, color="#333", ls=":", lw=1, label="Model")
         ax.set_yticks(range(len(data)), [lab for lab, _ in data] if q == "rho" else [""] * len(data))
         ax.set_title(QTY[q])
-        ax.set_xlabel("Median abs. error, mean of windows (%)")
+        ax.set_xlabel("Mean error (%)")
     axes[0].legend(frameon=False, fontsize=8)
     save(fig, "fig_ablation.png")
 
@@ -139,16 +139,22 @@ def fig_timeseries():
     run = 0
     rho_f, rho_p = _density(s, ser["x"], ser["phase"], steps)
     fig, axes = plt.subplots(4, 1, figsize=(10, 9), sharex=True)
-    panels = [(ser["rho_truth"], rho_f, rho_p, "Density (kg m$^{-3}$)"),
-              (ser["O_truth"], ser["O_fused"], ser["O_prior"], "Atomic O (m$^{-3}$)"),
-              (ser["N2_truth"], ser["N2_fused"], ser["N2_prior"], "N$_2$ (m$^{-3}$)")]
+    panels = [(ser["rho_truth"], rho_f, rho_p, "Density error (%)"),
+              (ser["O_truth"], ser["O_fused"], ser["O_prior"], "Atomic O error (%)"),
+              (ser["N2_truth"], ser["N2_fused"], ser["N2_prior"], "N$_2$ error (%)")]
     nwin = max(1, int(round(s.nper / max(1, int(steps[1] - steps[0])))))  # recorded points per orbit
-    sm = lambda y: np.exp(np.convolve(np.log(y), np.ones(nwin) / nwin, mode="same"))  # orbit running mean
+
+    def sm(y):  # orbit running mean, edge-padded (no end spikes)
+        pad = np.pad(y, nwin // 2, mode="edge")
+        return np.convolve(pad, np.ones(nwin) / nwin, mode="same")[nwin // 2: nwin // 2 + len(y)]
+
     for ax, (tru, fus, pri, lab) in zip(axes, panels):
-        ax.plot(hours, sm(pri[:, run].numpy()), color=C_MODEL, lw=0.9, label="Model (forecast-driven)")
-        ax.plot(hours, sm(tru[:, run].numpy()), color="#222", lw=0.8, label="Truth")
-        ax.plot(hours, sm(fus[:, run].numpy()), color=C_OURS, lw=1.0, label="Fused")
-        ax.set_yscale("log")
+        t = tru[:, run].numpy()
+        ax.plot(hours, 100 * sm(pri[:, run].numpy() / t - 1), color=C_MODEL, lw=1.0, label="Model (forecast-driven)")
+        ax.plot(hours, 100 * sm(fus[:, run].numpy() / t - 1), color=C_OURS, lw=1.2, label="Fused")
+        ax.axhline(0, color="#999", lw=0.5)
+        if "Density" in lab:
+            ax.axhspan(-20, 20, color=C_BENCH, alpha=0.06, lw=0, label="+-20% benchmark")
         ax.set_ylabel(lab)
     for ax in axes:
         ax.axvspan(39, 78, color="#f2d7d5", alpha=0.35, lw=0)
@@ -198,12 +204,40 @@ def fig_requirements():
     cfgs = [{k: r[k] for k in r if k.isupper() and k not in ignore and r[k] not in ("", None)} for r in rows]
     base = next((r for r, c in zip(rows, cfgs) if not c), rows[0])
     b = float(base[key])
-    items = [(", ".join(f"{k}={v}" for k, v in c.items())[:48], 100 * (float(r[key]) - b))
-             for r, c in zip(rows, cfgs) if c]
+    def nice(c):
+        if c.get("SO_MODE") == "consider":
+            return "Gauge O sensitivity uncalibrated (16%)"
+        if "SO_SD" in c:
+            return f"Gauge O sensitivity calibrated to {100*float(c['SO_SD']):.0f}%"
+        if "SO_TRUTH_SD" in c:
+            return f"O sensitivity worse than assumed ({100*float(c['SO_TRUTH_SD']):.0f}%)"
+        if "DRAG_WINDOW" in c:
+            return "Daily-averaged drag only"
+        if "GAUGE_GAP_EVERY" in c:
+            return "Gauge outages (30 min every 6 h)"
+        if "O_GAP_EVERY" in c:
+            return "FIPEX outages (1 h every 6 h)"
+        if "O_DRIFT_MEAN" in c:
+            return f"FIPEX drift {100*float(c['O_DRIFT_MEAN']):g}%/day"
+        if "R_TRUE" in c:
+            return "Gas sensitivity factors off"
+        names = {"CD_SD": "Host drag coefficient known to {}%", "DRAG_NOISE": "GPS drag noise {}% per orbit",
+                 "GAUGE_DRIFT_SD": "Gauge drift {}%/day", "GAUGE_NOISE": "Gauge noise {}%",
+                 "O_GAIN_SD": "FIPEX gain prior {}%", "O_NOISE": "FIPEX noise {}%", "LEAK_NOISE": "Leak {}%",
+                 "GAUGE_GAIN_SD": "Both gains ground-calibrated to {}%"}
+        k = next((k for k in names if k in c), None)
+        return names[k].format(f"{100*float(c[k]):g}") if k else ", ".join(f"{a}={v}" for a, v in c.items())[:48]
+
+    seen, items = set(), []
+    for r, c in zip(rows, cfgs):
+        lab = nice(c) if c else None
+        if lab and lab not in seen:  # A1 csv may hold an older duplicate block
+            seen.add(lab)
+            items.append((lab, 100 * (float(r[key]) - b)))
     items.sort(key=lambda t: abs(t[1]))
     fig, ax = plt.subplots(figsize=(8, 0.28 * len(items) + 1))
     ax.barh(range(len(items)), [v for _, v in items], color=[C_BENCH if v > 0 else C_OURS for _, v in items])
-    ax.set_yticks(range(len(items)), [lab for lab, _ in items], fontsize=7)
+    ax.set_yticks(range(len(items)), [lab for lab, _ in items], fontsize=9)
     ax.axvline(0, color="#333", lw=0.6)
     ax.set_xlabel(f"Change in storm density error vs baseline ({100 * b:.1f}%), percentage points")
     save(fig, "fig_requirements.png")

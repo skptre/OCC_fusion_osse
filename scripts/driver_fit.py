@@ -296,7 +296,8 @@ def figures(series0, col, fc, sp, sat, alt_sat):
                     label=f"Model, forecast drivers ({w})")
             ax.plot([100 * col[(z, w, q)][1] for z in ALTS], ALTS, "o" + ls, color=C_FIT, ms=4,
                     label=f"Model, fitted drivers ({w})")
-        ax.plot(100 * sat[("storm", q)][2], alt_sat, "*", color=C_OURS, ms=12, label="Fused at satellite (storm)")
+        if q == "rho":  # O star omitted: mean-vs-median and wiggle-truth differences make it misleading
+            ax.plot(100 * sat[("storm", q)][2], alt_sat, "*", color=C_OURS, ms=12, label="Fused at satellite (storm)")
         ax.set_title(f"{title}: error above/below the track")
         ax.set_xlabel("Mean abs. error (%)")
         ax.set_ylabel("Altitude (km)")

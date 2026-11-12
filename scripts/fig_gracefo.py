@@ -1,7 +1,3 @@
-"""GRACE-FO May 2024 superstorm figure (held-out real data): forecast-driven NRLMSIS 2.1 vs our fused density
-(baseline hardware, no leak) vs GRACE-FO accelerometer density (TOLEOS v0003). Orbit-averaged for readability.
-Run from the repo root (CPU, ~1 min):  python scripts/fig_gracefo.py
-Writes out/figures/fig_gracefo.png and out/figures/gracefo_series.csv."""
 import csv
 import sys
 from pathlib import Path
@@ -51,14 +47,21 @@ def orbit_mean(t, y, ok):
 
 def main():
     s = DE2Replay("gracefo_2024-05", prior="2.1", USE_SENSORS=("gauge", "o", "drag"))
-    r, sec = simt.run(s, 50, s.n_steps, seed=1, dtype=torch.float64, record_runs=1, record_every=2)
+    r, sec = simt.run(s, 200, s.n_steps, seed=1, dtype=torch.float64, record_runs=50, record_every=10)
     steps = r.series["step"].long().numpy()
     x = r.series["x"]
     rho_f, rho_p = fused_density(s, x, steps)
-    rho_f, rho_p = rho_f[:, 0].numpy(), rho_p[:, 0].numpy()
+    rho_all, rho_p = rho_f.numpy(), rho_p[:, 0].numpy()
     truth = r.series["rho_truth"][:, 0].numpy()
     ok = s.cover_np[0, steps].astype(bool) & np.isfinite(truth) & (truth > 0)
     hours = steps * s.dt / 3600
+    # per-run window MAE (same statistic as the 200-run table: median over runs of each run's MAE)
+    win = s._windows()
+    mae = {wn: np.mean(np.abs(rho_all[ok & (hours >= h0) & (hours < h1)] / truth[ok & (hours >= h0) & (hours < h1), None]
+                              - 1), axis=0) for wn, (h0, h1) in win.items()}
+    overall = np.mean(np.abs(rho_all[ok] / truth[ok, None] - 1), axis=0)
+    pick = int(np.argsort(overall)[len(overall) // 2])  # the MEDIAN run: a real trajectory, not an average
+    rho_f = rho_all[:, pick]
     t = steps * s.dt
     OUT.mkdir(parents=True, exist_ok=True)
     with open(OUT / "gracefo_series.csv", "w", newline="") as fh:
@@ -67,7 +70,7 @@ def main():
         w.writerows(zip(hours, truth, rho_p, rho_f, ok.astype(int)))
     fig, (a1, a2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True, gridspec_kw={"height_ratios": [2, 1]})
     for y, col, lab in ((rho_p, C_MODEL, "NRLMSIS 2.1, forecast drivers"), (truth, C_TRUTH, "GRACE-FO (held out)"),
-                        (rho_f, C_OURS, "Aether fused (baseline, simulated sensors)")):
+                        (rho_f, C_OURS, "Aether fused (baseline; median-performing simulated run)")):
         tt, yy = orbit_mean(t, y, ok)
         a1.plot(tt / 3600, yy, color=col, lw=1.6 if col == C_OURS else 1.1, label=lab)
     a1.set_yscale("log")
@@ -85,9 +88,12 @@ def main():
     a2.legend(frameon=False, fontsize=8)
     fig.savefig(OUT / "fig_gracefo.png", dpi=300, bbox_inches="tight")
     print("wrote", OUT / "fig_gracefo.png", f"({sec:.0f} s)")
-    for wn, (h0, h1) in s._windows().items():
+    print(f"  plotted run = median of {rho_all.shape[1]} recorded runs (index {pick})")
+    for wn, (h0, h1) in win.items():
         m = ok & (hours >= h0) & (hours < h1)
-        print(f"  {wn}: model {100*np.mean(np.abs(rho_p[m]/truth[m]-1)):.1f}%  ours {100*np.mean(np.abs(rho_f[m]/truth[m]-1)):.1f}% (recorded run)")
+        print(f"  {wn}: model {100*np.mean(np.abs(rho_p[m]/truth[m]-1)):.1f}%  ours: median over runs "
+              f"{100*np.median(mae[wn]):.1f}% (p90 {100*np.percentile(mae[wn], 90):.1f}%), plotted run "
+              f"{100*np.mean(np.abs(rho_f[m]/truth[m]-1)):.1f}%")
 
 
 if __name__ == "__main__":
